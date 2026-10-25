@@ -574,6 +574,10 @@ async function runSeed() {
 }
 
 export async function seedIfEmpty() {
+  // Demo seed data is opt-in for local development only.
+  // Production starts clean: set ALLOW_DEMO_SEED=true only if you really
+  // want the sample products/orders/users (incl. the demo admin account).
+  if (process.env.ALLOW_DEMO_SEED !== "true") return;
   if (globalForSeed.__auralisSeeded) return;
   if (!globalForSeed.__auralisSeedPromise) {
     globalForSeed.__auralisSeedPromise = runSeed()
