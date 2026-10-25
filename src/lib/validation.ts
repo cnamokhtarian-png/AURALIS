@@ -15,6 +15,15 @@ export type ProductPayload = {
   craftTime?: string;
 };
 
+export function isSafeImageUrl(url: string) {
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return true;
+  if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) return true;
+  if (/^data:image\/(jpeg|png|webp|gif|avif);base64,/i.test(trimmed)) return true;
+  return false;
+}
+
 export function validateProduct(body: ProductPayload, partial = false) {
   const errors: string[] = [];
   if (!partial || body.name !== undefined) {
@@ -28,5 +37,10 @@ export function validateProduct(body: ProductPayload, partial = false) {
     errors.push("موجودی نامعتبر است.");
   if (body.compareAtPrice != null && body.price != null && body.compareAtPrice <= body.price)
     errors.push("قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد.");
+  if (body.images !== undefined) {
+    if (!Array.isArray(body.images) || body.images.some((u) => typeof u !== "string" || !isSafeImageUrl(u))) {
+      errors.push("آدرس یکی از تصاویر معتبر نیست.");
+    }
+  }
   return errors;
 }

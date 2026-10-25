@@ -1,66 +1,63 @@
-"use client";
-
 import Link from "next/link";
-import { ArrowLeft, MessageCircle } from "lucide-react";
-import { CountUp } from "@/components/hero/hero-motion";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { LinkButton } from "@/components/ui";
 
-const STATS = [
-  { to: 300, prefix: "+", suffix: "", label: "سفارش تحویل‌شده" },
-  { to: 100, prefix: "", suffix: "٪", label: "دست‌دوز" },
-  { to: 7, prefix: "", suffix: " روز", label: "ضمانت بازگشت" },
+const PROVENANCE = [
+  { value: "۱۰۰٪ دست‌دوز", detail: "دوخت تک‌به‌تک در آتلیه" },
+  { value: "تیراژ محدود", detail: "با شماره سریال ساخت" },
+  { value: "جعبه مخملی", detail: "بسته‌بندی هدیه امضا" },
 ];
 
 export function HeroCopy() {
   return (
-    <div>
-      <div className="anim-fade-up mb-4 flex items-center gap-3" style={{ animationDelay: "0.05s" }}>
-        <span className="h-px w-8 bg-gold" />
-        <p className="text-xs font-medium tracking-[0.35em] text-gold-dark ltr">ATELIER AURALIS</p>
+    <div className="flex flex-col justify-center">
+      <div className="inline-flex items-center gap-3">
+        <span className="size-2 rounded-full bg-gold ring-4 ring-gold/20" />
+        <p className="font-serif text-xs font-medium tracking-[0.34em] text-gold-dark ltr">
+          ATELIER AURALIS · HANDCRAFTED
+        </p>
       </div>
 
-      <h1 className="text-4xl font-extrabold leading-[1.3] sm:text-5xl lg:text-[56px]">
-        <span className="block overflow-hidden pb-1">
-          <span className="anim-rise block" style={{ animationDelay: "0.2s" }}>
-            درخشش مروارید،
-          </span>
-        </span>
-        <span className="block overflow-hidden pb-2">
-          <span className="rise-sheen block" style={{ animationDelay: "0.38s" }}>
-            در دستان هنرمند
-          </span>
-        </span>
+      <h1 className="mt-5 text-4xl font-bold leading-[1.32] tracking-tight text-ink sm:text-5xl lg:text-[54px]">
+        <span className="block">ظرافتِ مروارید،</span>
+        <span className="gold-text mt-1 block">دوخته‌شده با حوصله‌ی دست</span>
       </h1>
 
-      <p className="anim-fade-up mt-6 max-w-xl text-base leading-9 text-ink-soft" style={{ animationDelay: "0.62s" }}>
-        کیف‌های مجلسی، جعبه‌های جواهر، جاکلیدی و اکسسوری‌هایی که هر کدام با هزاران مروارید صدفی، یک‌به‌یک و با دست دوخته می‌شوند.
-        قطعاتی محدود، برای لحظاتی که شایسته‌ی درخشش‌اند.
+      <p className="mt-6 max-w-xl text-base leading-9 text-ink-soft sm:text-[17px]">
+        کیف‌های شب، جعبه‌های جواهر و اکسسوری‌هایی که در آتلیه آورالیس، دانه به دانه با مرواریدهای صدفی دست‌چین و یراق
+        آبکاری طلا خلق می‌شوند؛ آثاری ماندگار و شماره‌دار برای لحظه‌هایی که شایسته‌ی درخشش‌اند.
       </p>
 
-      <div className="anim-fade-up mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: "0.78s" }}>
-        <LinkButton href="/products" variant="gold" size="lg" className="light-sweep">
-          مشاهده مجموعه
-          <ArrowLeft className="size-4" />
-        </LinkButton>
-        <LinkButton href="/guide" variant="secondary" size="lg">
-          راهنمای خرید کارت‌به‌کارت
-        </LinkButton>
-        <Link
-          href="/account/messages/new"
-          className="group inline-flex items-center gap-2 px-2 text-sm font-medium text-ink-soft transition hover:text-gold-dark"
+      <div className="mt-9 flex flex-wrap items-center gap-3.5">
+        <LinkButton
+          href="/products"
+          variant="primary"
+          size="lg"
+          className="group border border-ink px-8 shadow-luxe hover:border-gold-dark"
         >
-          <MessageCircle className="size-4 transition group-hover:-translate-y-0.5" />
+          مشاهده کلکسیون
+          <ArrowLeft className="size-4 text-gold-light transition-transform duration-300 group-hover:-translate-x-1" />
+        </LinkButton>
+
+        <LinkButton href="/account/messages/new" variant="secondary" size="lg" className="bg-pearl/90 px-6">
+          <Sparkles className="size-4 text-gold-dark" />
           سفارش اختصاصی
+        </LinkButton>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
+        <span>ارسال به سراسر ایران در جعبه مخملی رایگان</span>
+        <span className="text-gold">·</span>
+        <Link href="/guide" className="font-medium text-ink-soft underline decoration-gold/60 underline-offset-4 hover:text-gold-dark">
+          راهنمای خرید و پرداخت کارت‌به‌کارت
         </Link>
       </div>
 
-      <dl className="anim-fade-up mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-gold/20 pt-6" style={{ animationDelay: "0.95s" }}>
-        {STATS.map((s) => (
-          <div key={s.label}>
-            <dt className="font-serif text-2xl font-semibold text-ink">
-              <CountUp to={s.to} prefix={s.prefix} suffix={s.suffix} className="tabular-nums" />
-            </dt>
-            <dd className="mt-0.5 text-xs text-ink-muted">{s.label}</dd>
+      <dl className="mt-11 grid max-w-lg grid-cols-3 gap-4 border-t border-gold/25 pt-6 sm:gap-6">
+        {PROVENANCE.map((item, idx) => (
+          <div key={item.value} className={idx > 0 ? "border-r border-gold/20 pr-4 sm:pr-6" : ""}>
+            <dt className="text-sm font-bold text-ink sm:text-base">{item.value}</dt>
+            <dd className="mt-1 text-[11px] leading-5 text-ink-muted sm:text-xs">{item.detail}</dd>
           </div>
         ))}
       </dl>
