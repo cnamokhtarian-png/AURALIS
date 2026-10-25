@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus, Plus, Save, Trash2 } from "lucide-react";
+import { ImagePlus, Loader2, Plus, Save, Star, Trash2, UploadCloud } from "lucide-react";
 import type { Category, Product } from "@/db/schema";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui";
+import { uploadGalleryImage } from "@/lib/image-upload";
 import { cn, slugify, toEnglishDigits } from "@/lib/utils";
+import { isSafeImageUrl } from "@/lib/validation";
 
 const PRESET_IMAGES = [
   "/images/hero.jpg",
@@ -21,9 +23,17 @@ const PRESET_IMAGES = [
   "/images/atelier.jpg",
 ];
 
+type PendingUpload = {
+  id: string;
+  previewUrl: string;
+  name: string;
+};
+
 export function ProductForm({ product, categories }: { product?: Product; categories: Category[] }) {
   const router = useRouter();
   const toast = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [form, setForm] = useState({
     name: product?.name ?? "",
     slug: product?.slug ?? "",
@@ -40,16 +50,105 @@ export function ProductForm({ product, categories }: { product?: Product; catego
     isActive: product?.isActive ?? true,
   });
   const [images, setImages] = useState<string[]>(product?.images ?? []);
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
+  const [dragActive, setDragActive] = useState(false);
   const [customUrl, setCustomUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const pendingRef = useRef<PendingUpload[]>([]);
+
+  useEffect(() => {
+    pendingRef.current = pendingUploads;
+  }, [pendingUploads]);
+
+  useEffect(() => {
+    return () => {
+      for (const item of pendingRef.current) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+    };
+  }, []);
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
+  async function handleFiles(fileList: FileList | File[] | null | undefined) {
+    if (!fileList) return;
+    const files = Array.from(fileList).filter((f) => f.size > 0);
+    if (files.length === 0) return;
+
+    setError(null);
+
+    const queue = files.map((file) => ({
+      file,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      previewUrl: URL.createObjectURL(file),
+      name: file.name,
+    }));
+
+    setPendingUploads((prev) => [
+      ...prev,
+      ...queue.map(({ id, previewUrl, name }) => ({ id, previewUrl, name })),
+    ]);
+
+    let uploadedCount = 0;
+    for (const item of queue) {
+      try {
+        const uploadedUrl = await uploadGalleryImage(item.file, "products");
+        setImages((prev) => (prev.includes(uploadedUrl) ? prev : [...prev, uploadedUrl]));
+        uploadedCount += 1;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "آپلود تصویر ناموفق بود.";
+        setError(msg);
+        toast(msg, "error");
+      } finally {
+        URL.revokeObjectURL(item.previewUrl);
+        setPendingUploads((prev) => prev.filter((p) => p.id !== item.id));
+      }
+    }
+
+    if (uploadedCount > 0) {
+      toast(
+        uploadedCount === 1
+          ? "تصویر با موفقیت آپلود و اضافه شد."
+          : `${uploadedCount} تصویر با موفقیت آپلود شد.`,
+      );
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function makePrimary(index: number) {
+    if (index <= 0) return;
+    setImages((prev) => {
+      const next = [...prev];
+      const [chosen] = next.splice(index, 1);
+      next.unshift(chosen);
+      return next;
+    });
+  }
+
+  function addCustomImageUrl() {
+    const trimmed = customUrl.trim();
+    if (!trimmed) return;
+    if (!isSafeImageUrl(trimmed)) {
+      setError("لینک تصویر معتبر نیست (با https:// یا / شروع شود).");
+      return;
+    }
+    setError(null);
+    setImages((im) => (im.includes(trimmed) ? im : [...im, trimmed]));
+    setCustomUrl("");
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (pendingUploads.length > 0) {
+      setError("لطفاً چند لحظه صبر کنید تا آپلود تصاویر به پایان برسد.");
+      return;
+    }
     setError(null);
     setLoading(true);
     const payload = {
@@ -83,6 +182,8 @@ export function ProductForm({ product, categories }: { product?: Product; catego
     router.push("/admin/products");
     router.refresh();
   }
+
+  const isUploading = pendingUploads.length > 0;
 
   return (
     <form onSubmit={submit} className="grid gap-6 lg:grid-cols-3">
@@ -123,52 +224,167 @@ export function ProductForm({ product, categories }: { product?: Product; catego
         </section>
 
         <section className="card-luxe p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold">تصاویر محصول</h2>
-            <span className="text-[11px] text-ink-muted">اولین تصویر، تصویر اصلی است</span>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-bold">تصاویر محصول</h2>
+              <p className="mt-0.5 text-[11px] text-ink-muted">
+                از گالری گوشی یا کامپیوتر آپلود کنید، یا از تصاویر آماده انتخاب نمایید · اولین عکس تصویر اصلی است
+              </p>
+            </div>
+            {images.length > 0 && (
+              <span className="rounded-full bg-cream px-2.5 py-1 text-[11px] font-medium text-ink-soft">
+                {images.length} تصویر ثبت‌شده
+              </span>
+            )}
           </div>
-          {images.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-3">
-              {images.map((src, i) => (
-                <div key={src + i} className="group relative size-24 overflow-hidden rounded-2xl border border-sand">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt="" className="size-full object-cover" />
-                  {i === 0 && <span className="absolute top-1 right-1 rounded-full bg-gold px-1.5 text-[9px] font-bold text-ink">اصلی</span>}
-                  <button type="button" onClick={() => setImages((im) => im.filter((_, j) => j !== i))} className="absolute bottom-1 left-1 rounded-full bg-pearl p-1 text-rose-700 opacity-0 shadow-soft transition group-hover:opacity-100">
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </div>
-              ))}
+
+          {/* Direct Gallery / Computer Upload Dropzone */}
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragActive(false);
+              handleFiles(e.dataTransfer.files);
+            }}
+            onClick={() => fileInputRef.current?.click()}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
+            className={cn(
+              "mt-4 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition",
+              dragActive
+                ? "border-gold bg-gold/10"
+                : "border-gold/40 bg-cream/45 hover:border-gold hover:bg-cream/75",
+            )}
+          >
+            <span className="flex size-12 items-center justify-center rounded-full bg-pearl text-gold-dark shadow-soft ring-1 ring-gold/25">
+              {isUploading ? <Loader2 className="size-5 animate-spin" /> : <UploadCloud className="size-5" />}
+            </span>
+            <p className="mt-3 text-sm font-semibold text-ink">
+              {isUploading ? "در حال آپلود و بهینه‌سازی تصویر..." : "آپلود مستقیم از گالری گوشی یا کامپیوتر"}
+            </p>
+            <p className="mt-1 text-xs text-ink-muted">
+              برای انتخاب یک یا چند عکس لمس کنید، یا فایل‌ها را اینجا رها کنید · JPG, PNG, WebP
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => handleFiles(e.target.files)}
+            />
+          </div>
+
+          {/* Selected + Uploading Previews */}
+          {(images.length > 0 || pendingUploads.length > 0) && (
+            <div className="mt-5">
+              <p className="mb-2.5 text-xs font-medium text-ink-soft">پیش‌نمایش تصاویر محصول:</p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
+                {images.map((src, i) => (
+                  <div
+                    key={`${src}-${i}`}
+                    className={cn(
+                      "group relative aspect-[4/5] overflow-hidden rounded-2xl border bg-cream transition",
+                      i === 0 ? "border-gold ring-2 ring-gold/30" : "border-sand",
+                    )}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt={`تصویر ${i + 1}`} className="size-full object-cover" />
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-ink/65 to-transparent" />
+
+                    {i === 0 ? (
+                      <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-gold px-2 py-0.5 text-[10px] font-bold text-ink shadow-soft">
+                        <Star className="size-2.5 fill-ink" /> اصلی
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => makePrimary(i)}
+                        className="absolute top-2 right-2 rounded-full bg-pearl/90 px-2 py-0.5 text-[10px] font-medium text-ink shadow-soft backdrop-blur transition hover:bg-gold"
+                        title="انتخاب به عنوان تصویر اصلی"
+                      >
+                        اصلی شود
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setImages((im) => im.filter((_, j) => j !== i))}
+                      className="absolute bottom-2 left-2 flex size-7 items-center justify-center rounded-full bg-pearl/95 text-rose-700 shadow-soft transition hover:bg-rose-600 hover:text-white"
+                      aria-label="حذف تصویر"
+                      title="حذف تصویر"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                {pendingUploads.map((item) => (
+                  <div
+                    key={item.id}
+                    className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-gold/40 bg-cream"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={item.previewUrl} alt={item.name} className="size-full object-cover opacity-55 blur-[1px]" />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-ink/35 p-2 text-center text-pearl">
+                      <Loader2 className="size-5 animate-spin text-gold-light" />
+                      <span className="text-[10px] font-medium">در حال ذخیره...</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-          <p className="mt-4 text-xs text-ink-soft">انتخاب از گالری آتلیه:</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {PRESET_IMAGES.map((src) => {
-              const selected = images.includes(src);
-              return (
-                <button
-                  key={src}
-                  type="button"
-                  onClick={() => setImages((im) => (selected ? im.filter((s) => s !== src) : [...im, src]))}
-                  className={cn("size-16 overflow-hidden rounded-xl border-2 transition", selected ? "border-gold" : "border-transparent opacity-70 hover:opacity-100")}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt="" className="size-full object-cover" />
-                </button>
-              );
-            })}
+
+          {/* Preset Atelier Images */}
+          <div className="mt-6 border-t border-sand/70 pt-4">
+            <p className="text-xs text-ink-soft">یا انتخاب از عکس‌های آماده آتلیه:</p>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {PRESET_IMAGES.map((src) => {
+                const selected = images.includes(src);
+                return (
+                  <button
+                    key={src}
+                    type="button"
+                    onClick={() => setImages((im) => (selected ? im.filter((s) => s !== src) : [...im, src]))}
+                    className={cn(
+                      "size-16 overflow-hidden rounded-xl border-2 transition",
+                      selected ? "border-gold ring-2 ring-gold/25" : "border-transparent opacity-75 hover:opacity-100",
+                    )}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" className="size-full object-cover" />
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Direct URL Input */}
           <div className="mt-4 flex gap-2">
-            <Input value={customUrl} onChange={(e) => setCustomUrl(e.target.value)} placeholder="یا آدرس تصویر (URL) را وارد کنید" className="ltr text-right" />
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                if (!customUrl.trim()) return;
-                setImages((im) => [...im, customUrl.trim()]);
-                setCustomUrl("");
+            <Input
+              value={customUrl}
+              onChange={(e) => setCustomUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCustomImageUrl();
+                }
               }}
-            >
+              placeholder="یا لینک مستقیم تصویر (URL) را وارد کنید"
+              className="ltr text-right"
+            />
+            <Button type="button" variant="secondary" onClick={addCustomImageUrl}>
               <ImagePlus className="size-4" /> افزودن
             </Button>
           </div>
@@ -199,7 +415,7 @@ export function ProductForm({ product, categories }: { product?: Product; catego
 
         {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
         <div className="flex gap-2">
-          <Button type="submit" variant="gold" size="lg" className="flex-1" loading={loading}>
+          <Button type="submit" variant="gold" size="lg" className="flex-1" loading={loading} disabled={isUploading}>
             {product ? <Save className="size-4" /> : <Plus className="size-4" />}
             {product ? "ذخیره تغییرات" : "ایجاد محصول"}
           </Button>

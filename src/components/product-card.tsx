@@ -11,6 +11,7 @@ export function ProductCard({ product, categoryName, className }: { product: Pro
   const { add } = useCart();
   const toast = useToast();
   const image = product.images[0] ?? "/images/hero.jpg";
+  const secondaryImage = product.images[1];
   const soldOut = product.stock <= 0;
   const discount = product.compareAtPrice ? Math.round((1 - product.price / product.compareAtPrice) * 100) : 0;
 
@@ -23,45 +24,70 @@ export function ProductCard({ product, categoryName, className }: { product: Pro
   return (
     <Link
       href={`/products/${product.slug}`}
-      className={cn("group card-luxe flex flex-col overflow-hidden transition duration-300 hover:-translate-y-1 hover:shadow-luxe", className)}
+      className={cn(
+        "group card-luxe flex flex-col overflow-hidden transition duration-500 hover:-translate-y-1 hover:border-gold/45 hover:shadow-luxe",
+        className,
+      )}
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-cream">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={image} alt={product.name} className="size-full object-cover transition duration-700 group-hover:scale-105" loading="lazy" />
+        <img
+          src={image}
+          alt={product.name}
+          className={cn(
+            "size-full object-cover transition duration-700 group-hover:scale-105",
+            secondaryImage && "group-hover:opacity-0",
+          )}
+          loading="lazy"
+        />
+        {secondaryImage && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={secondaryImage}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 size-full object-cover opacity-0 transition duration-700 group-hover:scale-105 group-hover:opacity-100"
+            loading="lazy"
+          />
+        )}
         <div className="absolute top-3 right-3 flex flex-col gap-1.5">
           {discount > 0 && (
             <span className="rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold text-pearl">{formatNumber(discount)}٪ تخفیف</span>
           )}
           {product.isFeatured && (
-            <span className="flex items-center gap-1 rounded-full bg-pearl/90 px-2.5 py-1 text-[11px] font-medium text-gold-dark ring-1 ring-gold/40">
+            <span className="flex items-center gap-1 rounded-full bg-pearl/92 px-2.5 py-1 text-[11px] font-medium text-gold-dark ring-1 ring-gold/35 backdrop-blur-sm">
               <Sparkles className="size-3" /> منتخب
             </span>
           )}
         </div>
         {soldOut ? (
-          <div className="absolute inset-x-0 bottom-0 bg-ink/70 py-2 text-center text-xs font-medium text-pearl backdrop-blur">ناموجود — سفارش اختصاصی</div>
+          <div className="absolute inset-x-0 bottom-0 bg-ink/75 py-2 text-center text-xs font-medium text-pearl backdrop-blur-sm">
+            ناموجود — قابل سفارش اختصاصی
+          </div>
         ) : (
           <button
             onClick={quickAdd}
-            className="absolute bottom-3 left-3 flex size-10 translate-y-2 items-center justify-center rounded-full bg-pearl text-ink opacity-0 shadow-soft transition duration-300 hover:bg-gold group-hover:translate-y-0 group-hover:opacity-100"
+            className="absolute bottom-3 left-3 flex size-10 translate-y-2 items-center justify-center rounded-full bg-pearl/95 text-ink opacity-0 shadow-soft transition duration-300 hover:bg-gold group-hover:translate-y-0 group-hover:opacity-100"
             aria-label="افزودن سریع به سبد"
           >
             <ShoppingBag className="size-4" />
           </button>
         )}
       </div>
-      <div className="flex flex-1 flex-col p-4">
-        {categoryName && <p className="mb-1 text-[11px] tracking-wider text-gold-dark">{categoryName}</p>}
-        <h3 className="line-clamp-1 text-sm font-semibold text-ink">{product.name}</h3>
-        {product.shortDescription && <p className="mt-1 line-clamp-2 text-xs leading-6 text-ink-soft">{product.shortDescription}</p>}
-        <div className="mt-auto flex items-end justify-between pt-4">
+      <div className="flex flex-1 flex-col p-4 sm:p-5">
+        {categoryName && <p className="mb-1 text-[11px] font-medium tracking-wider text-gold-dark">{categoryName}</p>}
+        <h3 className="line-clamp-1 text-sm font-semibold text-ink sm:text-[15px]">{product.name}</h3>
+        {product.shortDescription && <p className="mt-1.5 mb-4 line-clamp-2 text-xs leading-6 text-ink-soft">{product.shortDescription}</p>}
+        <div className="mt-auto flex items-end justify-between border-t border-sand/60 pt-3.5">
           <div>
             {product.compareAtPrice && (
               <p className="text-[11px] text-ink-muted line-through">{formatNumber(product.compareAtPrice)}</p>
             )}
             <p className="text-sm font-bold text-ink">{formatPrice(product.price)}</p>
           </div>
-          {product.stock > 0 && product.stock <= 3 && <span className="text-[11px] text-amber-700">فقط {formatNumber(product.stock)} عدد</span>}
+          {product.stock > 0 && product.stock <= 3 && (
+            <span className="text-[11px] font-medium text-gold-dark">تنها {formatNumber(product.stock)} عدد</span>
+          )}
         </div>
       </div>
     </Link>
