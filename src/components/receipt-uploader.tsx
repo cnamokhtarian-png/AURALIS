@@ -5,31 +5,7 @@ import { useRouter } from "next/navigation";
 import { ImagePlus, Trash2, Upload, XCircle } from "lucide-react";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, Textarea } from "@/components/ui";
-
-async function compressImage(file: File, maxSize = 1400, quality = 0.82): Promise<string> {
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-  if (!file.type.startsWith("image/") || file.type === "image/svg+xml") return dataUrl;
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return resolve(dataUrl);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", quality));
-    };
-    img.onerror = () => resolve(dataUrl);
-    img.src = dataUrl;
-  });
-}
+import { compressImageFile as compressImage } from "@/lib/image-file";
 
 export function ReceiptUploader({ orderId, canCancel, existingRef }: { orderId: number; canCancel: boolean; existingRef?: string | null }) {
   const router = useRouter();

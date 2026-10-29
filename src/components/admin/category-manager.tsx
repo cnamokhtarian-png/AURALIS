@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Pencil, Plus, Tags, Trash2 } from "lucide-react";
 import type { Category } from "@/db/schema";
 import { useToast } from "@/components/toast";
+import { ImagePicker } from "@/components/admin/image-picker";
 import { Button, EmptyState, Field, Input, Modal, Textarea } from "@/components/ui";
 import { formatNumber } from "@/lib/utils";
 
@@ -120,14 +121,15 @@ export function CategoryManager({ initial }: { initial: Row[] }) {
           <Field label="توضیح">
             <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="min-h-[80px]" />
           </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="آدرس تصویر">
-              <Input value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} className="ltr text-right" placeholder="/images/products/pearl-box.jpg" />
-            </Field>
-            <Field label="ترتیب نمایش">
-              <Input value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} inputMode="numeric" className="ltr text-right" />
-            </Field>
-          </div>
+          <ImagePicker
+            label="عکس سرپوش (کاور) دسته‌بندی"
+            hint="این عکس روی کارت این مجموعه در صفحه اصلی فروشگاه نمایش داده می‌شود."
+            value={form.image}
+            onChange={(image) => setForm({ ...form, image })}
+          />
+          <Field label="ترتیب نمایش">
+            <Input value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} inputMode="numeric" className="ltr text-right" />
+          </Field>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={close}>انصراف</Button>
             <Button type="submit" variant="gold" loading={loading}>{editing ? "ذخیره" : "ایجاد"}</Button>

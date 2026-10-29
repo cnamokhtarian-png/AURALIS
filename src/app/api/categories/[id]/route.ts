@@ -4,6 +4,7 @@ import { categories } from "@/db/schema";
 import { forbidden, getCurrentUser, unauthorized } from "@/lib/auth";
 import { badRequest, notFound, readJson } from "@/lib/server";
 import { slugify } from "@/lib/utils";
+import { imageInputError } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,11 @@ export async function PUT(req: Request, { params }: Ctx) {
   }
   if (body.slug !== undefined && body.slug.trim()) update.slug = slugify(body.slug);
   if (body.description !== undefined) update.description = body.description.trim() || null;
-  if (body.image !== undefined) update.image = body.image.trim() || null;
+  if (body.image !== undefined) {
+    const imageError = imageInputError(body.image);
+    if (imageError) return badRequest(imageError);
+    update.image = body.image.trim() || null;
+  }
   if (body.sortOrder !== undefined) update.sortOrder = body.sortOrder;
 
   const [updated] = await db.update(categories).set(update).where(eq(categories.id, Number(id))).returning();

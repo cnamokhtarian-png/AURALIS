@@ -67,7 +67,7 @@ function PearlStrand() {
   );
 }
 
-export function HeroVisual() {
+export function HeroVisual({ src = "/images/hero.jpg" }: { src?: string }) {
   return (
     <div className="relative mx-auto w-full max-w-md lg:max-w-[30rem]">
       {/* rotating dashed halo behind the frame */}
@@ -83,7 +83,7 @@ export function HeroVisual() {
         <div className="light-sweep relative aspect-[4/5] overflow-hidden rounded-t-[198px] rounded-b-[32px] border-[5px] border-pearl bg-cream">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/images/hero.jpg"
+            src={src}
             alt="کیف شب مرواریدی دست‌دوز آورالیس"
             className="kenburns size-full object-cover"
             fetchPriority="high"
