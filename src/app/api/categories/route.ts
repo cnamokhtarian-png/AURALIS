@@ -5,6 +5,7 @@ import { seedIfEmpty } from "@/db/seed";
 import { forbidden, getCurrentUser, unauthorized } from "@/lib/auth";
 import { badRequest, readJson } from "@/lib/server";
 import { slugify } from "@/lib/utils";
+import { imageInputError } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,8 @@ export async function POST(req: Request) {
   if (user.role !== "admin") return forbidden();
   const body = await readJson<{ name?: string; slug?: string; description?: string; image?: string; sortOrder?: number }>(req);
   if (!body?.name || body.name.trim().length < 2) return badRequest("نام دسته‌بندی الزامی است.");
+  const imageError = imageInputError(body.image);
+  if (imageError) return badRequest(imageError);
 
   let slug = body.slug?.trim() ? slugify(body.slug) : slugify(body.name);
   const clash = await db.query.categories.findFirst({ where: eq(categories.slug, slug) });

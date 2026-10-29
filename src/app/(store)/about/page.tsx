@@ -1,10 +1,12 @@
 import { Gem, HeartHandshake, Hourglass, Sparkles } from "lucide-react";
 import { LinkButton } from "@/components/ui";
+import { getSettings } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "درباره آورالیس" };
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const settings = await getSettings();
   return (
     <div>
       <section className="pearl-sheen">
@@ -24,7 +26,7 @@ export default function AboutPage() {
           </div>
           <div className="overflow-hidden rounded-[40px] border-[6px] border-pearl shadow-luxe">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/atelier.jpg" alt="آتلیه آورالیس" className="aspect-[4/3] w-full object-cover" />
+            <img src={settings.atelierImage ?? "/images/atelier.jpg"} alt="آتلیه آورالیس" className="aspect-[4/3] w-full object-cover" />
           </div>
         </div>
       </section>

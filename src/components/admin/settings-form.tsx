@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Save } from "lucide-react";
 import type { StoreSettings } from "@/db/schema";
+import { ImagePicker } from "@/components/admin/image-picker";
 import { PaymentInstructions } from "@/components/order-ui";
 import { useToast } from "@/components/toast";
 import { Button, Field, Input, Textarea } from "@/components/ui";
@@ -23,6 +24,8 @@ export function SettingsForm({ settings }: { settings: StoreSettings }) {
     supportPhone: settings.supportPhone ?? "",
     instagram: settings.instagram ?? "",
     address: settings.address ?? "",
+    heroImage: settings.heroImage ?? "",
+    atelierImage: settings.atelierImage ?? "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -100,6 +103,32 @@ export function SettingsForm({ settings }: { settings: StoreSettings }) {
             <Field label="آدرس آتلیه" className="sm:col-span-2">
               <Textarea value={form.address} onChange={(e) => set("address", e.target.value)} className="min-h-[70px]" />
             </Field>
+          </div>
+        </section>
+
+        <section className="card-luxe p-6">
+          <h2 className="text-sm font-bold">عکس‌های سرپوش (کاور) فروشگاه</h2>
+          <p className="mt-1 text-xs leading-6 text-ink-soft">
+            عکس اصلی صفحه اول و عکس آتلیه را از گالری آتلیه انتخاب کنید، یا با «افزودن فایل» عکس‌های خودتان و عکس‌های
+            دانلودشده را از روی سیستم آپلود کنید. اگر خالی بماند، عکس پیش‌فرض فعلی نمایش داده می‌شود.
+          </p>
+          <div className="mt-5 space-y-8">
+            <ImagePicker
+              label="عکس سرپوش صفحه اصلی (هیرو)"
+              hint="بهتر است عمودی باشد (نسبت ۴ به ۵)؛ همان عکس بزرگ بالای صفحه اول فروشگاه است."
+              value={form.heroImage}
+              onChange={(v) => set("heroImage", v)}
+              maxSize={1600}
+              previewClassName="aspect-[4/3]"
+            />
+            <ImagePicker
+              label="عکس آتلیه"
+              hint="در بخش «آتلیه» صفحه اصلی و در صفحه «درباره آورالیس» نمایش داده می‌شود."
+              value={form.atelierImage}
+              onChange={(v) => set("atelierImage", v)}
+              maxSize={1600}
+              previewClassName="aspect-[4/3]"
+            />
           </div>
         </section>
 

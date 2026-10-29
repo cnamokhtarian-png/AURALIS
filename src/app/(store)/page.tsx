@@ -10,6 +10,7 @@ import { PearlField } from "@/components/hero/hero-motion";
 import { HeroCopy } from "@/components/hero/hero-copy";
 import { HeroVisual } from "@/components/hero/hero-visual";
 import { LinkButton } from "@/components/ui";
+import { getSettings } from "@/lib/server";
 import { formatNumber } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ const TESTIMONIALS = [
 
 export default async function HomePage() {
   await seedIfEmpty();
-  const [featured, cats, newest] = await Promise.all([
+  const [featured, cats, newest, settings] = await Promise.all([
     db.query.products.findMany({
       where: eq(products.isFeatured, true),
       with: { category: true },
@@ -38,6 +39,7 @@ export default async function HomePage() {
     }),
     db.query.categories.findMany({ orderBy: [asc(categories.sortOrder)] }),
     db.query.products.findMany({ where: eq(products.isActive, true), orderBy: [desc(products.createdAt)], limit: 4, with: { category: true } }),
+    getSettings(),
   ]);
   const activeFeatured = featured.filter((p) => p.isActive);
 
@@ -51,7 +53,7 @@ export default async function HomePage() {
         <div className="anim-blob-slow pointer-events-none absolute top-40 -right-24 size-96 rounded-full bg-blush/60 blur-3xl" />
         <div className="mx-auto grid max-w-7xl items-center gap-14 px-4 pt-14 pb-14 sm:px-6 lg:grid-cols-2 lg:gap-10 lg:pt-20">
           <HeroCopy />
-          <HeroVisual />
+          <HeroVisual src={settings.heroImage ?? "/images/hero.jpg"} />
         </div>
 
         <div className="relative flex flex-col items-center gap-1 pb-8">
@@ -141,7 +143,7 @@ export default async function HomePage() {
           <div className="relative order-2 lg:order-1">
             <div className="overflow-hidden rounded-[32px] border border-gold/30">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/images/atelier.jpg" alt="آتلیه آورالیس" className="aspect-[4/3] w-full object-cover" loading="lazy" />
+              <img src={settings.atelierImage ?? "/images/atelier.jpg"} alt="آتلیه آورالیس" className="aspect-[4/3] w-full object-cover" loading="lazy" />
             </div>
             <div className="absolute -top-5 -right-3 rounded-2xl bg-gold px-4 py-2 text-xs font-bold text-ink shadow-luxe">از ۱۳۹۸ تاکنون</div>
           </div>

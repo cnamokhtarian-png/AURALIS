@@ -154,6 +154,10 @@ export const storeSettings = pgTable("store_settings", {
   supportPhone: text("support_phone"),
   instagram: text("instagram"),
   address: text("address"),
+  /** Cover photo of the home-page hero; null = the bundled /images/hero.jpg. */
+  heroImage: text("hero_image"),
+  /** Atelier photo (home page + about page); null = the bundled /images/atelier.jpg. */
+  atelierImage: text("atelier_image"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

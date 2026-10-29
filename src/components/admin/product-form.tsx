@@ -1,25 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus, Plus, Save, Trash2 } from "lucide-react";
+import { ImagePlus, Loader2, Plus, Save, Trash2, Upload } from "lucide-react";
 import type { Category, Product } from "@/db/schema";
 import { useToast } from "@/components/toast";
+import { PRESET_IMAGES } from "@/components/admin/image-picker";
 import { Button, Field, Input, Select, Textarea } from "@/components/ui";
+import { compressImageFile, imageFileError } from "@/lib/image-file";
 import { cn, slugify, toEnglishDigits } from "@/lib/utils";
-
-const PRESET_IMAGES = [
-  "/images/hero.jpg",
-  "/images/products/pearl-clutch.jpg",
-  "/images/products/pearl-mini-bag.jpg",
-  "/images/products/pearl-box.jpg",
-  "/images/products/pearl-keychain.jpg",
-  "/images/products/pearl-mirror.jpg",
-  "/images/products/pearl-hairclip.jpg",
-  "/images/products/pearl-tray.jpg",
-  "/images/products/pearl-tissue-box.jpg",
-  "/images/atelier.jpg",
-];
 
 export function ProductForm({ product, categories }: { product?: Product; categories: Category[] }) {
   const router = useRouter();
@@ -41,6 +30,33 @@ export function ProductForm({ product, categories }: { product?: Product; catego
   });
   const [images, setImages] = useState<string[]>(product?.images ?? []);
   const [customUrl, setCustomUrl] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  /** Add the admin's own / downloaded photos picked from their device. */
+  async function handleFiles(list: FileList | null) {
+    const files = Array.from(list ?? []);
+    if (!files.length) return;
+    setError(null);
+    setUploading(true);
+    const added: string[] = [];
+    let rejected = false;
+    for (const file of files) {
+      if (imageFileError(file)) {
+        rejected = true;
+        continue;
+      }
+      try {
+        added.push(await compressImageFile(file, 1200));
+      } catch {
+        rejected = true;
+      }
+    }
+    if (added.length) setImages((im) => [...im, ...added].slice(0, 12));
+    if (rejected) setError("بعضی فایل‌ها اضافه نشدند؛ فقط عکس‌های کمتر از ۸ مگابایت قابل آپلودند.");
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -141,6 +157,34 @@ export function ProductForm({ product, categories }: { product?: Product; catego
               ))}
             </div>
           )}
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              handleFiles(e.dataTransfer.files);
+            }}
+            className="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gold/40 bg-cream/50 p-5 text-center transition hover:border-gold"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="size-7 animate-spin text-gold-dark" />
+                <p className="mt-3 text-sm font-semibold">در حال آماده‌سازی عکس‌ها…</p>
+              </>
+            ) : (
+              <>
+                <span className="flex size-12 items-center justify-center rounded-full bg-pearl text-gold-dark shadow-soft">
+                  <Upload className="size-5" />
+                </span>
+                <p className="mt-3 text-sm font-semibold">افزودن فایل از سیستم</p>
+                <p className="mt-1 max-w-sm text-[11px] leading-5 text-ink-muted">
+                  عکس‌های خودتان یا عکس‌های دانلودشده را از گالری گوشی یا کامپیوتر انتخاب کنید؛ می‌توانید چند عکس را با هم انتخاب
+                  کنید یا اینجا رها کنید. عکس‌ها خودکار فشرده می‌شوند (حداکثر ۱۲ عکس).
+                </p>
+              </>
+            )}
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
           <p className="mt-4 text-xs text-ink-soft">انتخاب از گالری آتلیه:</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {PRESET_IMAGES.map((src) => {
