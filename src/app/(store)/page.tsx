@@ -6,6 +6,7 @@ import { categories, products } from "@/db/schema";
 import { seedIfEmpty } from "@/db/seed";
 import { ProductCard } from "@/components/product-card";
 import { BrandIntro } from "@/components/hero/brand-intro";
+import { ShowcaseBanner } from "@/components/showcase/showcase-banner";
 import { PearlField } from "@/components/hero/hero-motion";
 import { HeroCopy } from "@/components/hero/hero-copy";
 import { HeroVisual } from "@/components/hero/hero-visual";
@@ -45,6 +46,9 @@ export default async function HomePage() {
 
   return (
     <div>
+      {/* اسلایدشوی تبلیغاتی نمونه‌کارها — بالای صفحه اصلی */}
+      <ShowcaseBanner />
+
       {/* Hero — 2D motion stage */}
       <section className="pearl-sheen relative overflow-hidden">
         <BrandIntro />
