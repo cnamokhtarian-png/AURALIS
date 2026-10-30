@@ -1,7 +1,7 @@
 -- AURALIS — home-page portfolio slideshow (Admin → اسلایدشو).
 -- Images may be a bundled path (/images/showcase/...), an external URL, or a data URL
 -- uploaded from the admin's device (same convention as products/categories).
--- Already applied to the AURALIS Supabase project (migration: add_showcase_slides).
+-- Apply once (Supabase SQL editor, `supabase db push`, or `npm run db:push`).
 
 create table if not exists showcase_slides (
   id serial primary key,

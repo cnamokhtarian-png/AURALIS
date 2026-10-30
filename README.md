@@ -80,7 +80,7 @@ npm run dev
 - ترتیب اسلایدها با دکمه‌های بالا/پایین همان فهرست تعیین می‌شود؛ هر نمونه‌کار را می‌توان با یک کلیک موقتاً مخفی کرد.
 - متن‌های کنار قاب (برچسب بالای بنر، عنوان اصلی، توضیح کوتاه) و کلید «نمایش اسلایدشو در صفحه اصلی» هم در همان صفحه است. بخشی از عنوان را داخل `{ }` بگذارید تا طلایی چاپ شود.
 - اگر هیچ ردیفی در جدول نباشد (یا دیتابیس در دسترس نباشد) چهار نمونه‌کار پیش‌فرض `src/components/showcase/showcase-data.ts` نمایش داده می‌شود؛ با دکمه «افزودن نمونه‌کارهای پیش‌فرض» می‌توانید همان‌ها را یک‌بار برای همیشه داخل دیتابیس بسازید و بعد ویرایش کنید.
-- دیتابیس: جدول `showcase_slides` و ستون‌های `showcase_enabled` / `showcase_eyebrow` / `showcase_title` / `showcase_subtitle` در `store_settings` — `supabase/migrations/0003_showcase_slides.sql`.
+- دیتابیس: جدول `showcase_slides` و ستون‌های `showcase_enabled` / `showcase_eyebrow` / `showcase_title` / `showcase_subtitle` در `store_settings` — فایل `supabase/migrations/0003_showcase_slides.sql` را یک‌بار اجرا کنید (SQL editor سوپابیس، `supabase db push` یا `npm run db:push`).
 - APIها: `GET/POST /api/showcase`، `PUT/DELETE /api/showcase/{id}`، `POST /api/showcase/reorder`، `PUT /api/showcase/settings`، `POST /api/showcase/seed` (همه‌ی تغییردهنده‌ها فقط برای ادمین).
 - تصاویر پیش‌فرض در `public/images/showcase/` و با **نسبت ۳:۴ (عمودی)** و فرمت WebP ذخیره شده‌اند؛ برای بهترین نتیجه عکس آپلودی هم عمودی ۳:۴ باشد.
 - برای دیدن بنر به‌تنهایی در لوکال با `ALLOW_DEMO_SEED=true` مسیر `/preview-banner` را باز کنید؛ این صفحه در پروداکشن ۴۰۴ است و در سایت لینک نشده.

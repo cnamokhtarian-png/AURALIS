@@ -35,9 +35,14 @@ export function toShowcaseView(slide: ShowcaseSlide): ShowcaseSlideView {
 
 /** All slides (active + inactive) for the admin manager. */
 export async function listShowcaseSlidesForAdmin(): Promise<ShowcaseSlide[]> {
-  return db.query.showcaseSlides.findMany({
-    orderBy: [asc(showcaseSlides.sortOrder), asc(showcaseSlides.id)],
-  });
+  try {
+    return await db.query.showcaseSlides.findMany({
+      orderBy: [asc(showcaseSlides.sortOrder), asc(showcaseSlides.id)],
+    });
+  } catch {
+    // Table not migrated yet — show the empty state instead of a crashed page.
+    return [];
+  }
 }
 
 /**
