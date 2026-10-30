@@ -158,6 +158,31 @@ export const storeSettings = pgTable("store_settings", {
   heroImage: text("hero_image"),
   /** Atelier photo (home page + about page); null = the bundled /images/atelier.jpg. */
   atelierImage: text("atelier_image"),
+  /** Home-page portfolio slideshow switches (managed in Admin → اسلایدشو). */
+  showcaseEnabled: boolean("showcase_enabled").notNull().default(true),
+  showcaseEyebrow: text("showcase_eyebrow"),
+  /** Wrap part of the headline in { } to render it with the gold gradient. */
+  showcaseTitle: text("showcase_title"),
+  showcaseSubtitle: text("showcase_subtitle"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Curated portfolio slides shown in the home-page banner.
+ * The image may be a bundled path, an external URL or a data URL uploaded
+ * from the admin's device (same convention as products/categories).
+ */
+export const showcaseSlides = pgTable("showcase_slides", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  image: text("image").notNull(),
+  alt: text("alt"),
+  /** Optional click-through target, e.g. /products/pearl-box */
+  href: text("href"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -212,4 +237,5 @@ export type OrderItem = typeof orderItems.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type StoreSettings = typeof storeSettings.$inferSelect;
+export type ShowcaseSlide = typeof showcaseSlides.$inferSelect;
 export type OrderStatus = (typeof orderStatusEnum.enumValues)[number];

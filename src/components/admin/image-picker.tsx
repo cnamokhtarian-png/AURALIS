@@ -18,6 +18,10 @@ export const PRESET_IMAGES = [
   "/images/products/pearl-tray.jpg",
   "/images/products/pearl-tissue-box.jpg",
   "/images/atelier.jpg",
+  "/images/showcase/pearl-jewelry-box.webp",
+  "/images/showcase/penguin-keychain.webp",
+  "/images/showcase/name-keychain.webp",
+  "/images/showcase/poker-keychain.webp",
 ];
 
 type Props = {

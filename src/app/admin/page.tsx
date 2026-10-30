@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, asc, count, desc, eq, gte, inArray, lte, sum } from "drizzle-orm";
-import { AlertTriangle, ArrowLeft, Banknote, Clock, MessageCircle, Package, ShoppingBag, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Banknote, Clock, GalleryHorizontalEnd, MessageCircle, Package, ShoppingBag, Users } from "lucide-react";
 import { db } from "@/db";
 import { orders, products, users } from "@/db/schema";
 import { ConversationList } from "@/components/conversation-list";
@@ -79,6 +79,9 @@ export default async function AdminDashboard() {
           </dl>
           <Link href="/admin/products/new" className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-ink px-3 py-2.5 text-xs font-medium text-pearl hover:bg-black">
             افزودن محصول جدید <ArrowLeft className="size-3.5" />
+          </Link>
+          <Link href="/admin/showcase" className="mt-2 flex items-center justify-center gap-2 rounded-xl border border-sand px-3 py-2.5 text-xs font-medium text-ink-soft transition hover:border-gold hover:text-gold-dark">
+            مدیریت اسلایدشوی نمونه‌کارها <GalleryHorizontalEnd className="size-3.5" />
           </Link>
         </div>
       </div>

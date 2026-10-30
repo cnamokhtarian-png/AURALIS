@@ -35,6 +35,40 @@ export function imageInputError(value?: string | null): string | null {
   return null;
 }
 
+export type ShowcaseSlidePayload = {
+  title?: string;
+  description?: string;
+  image?: string;
+  alt?: string;
+  href?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+};
+
+/** Validates an admin-supplied showcase slide. Returns a Persian error or null. */
+export function showcaseSlideInputError(body: ShowcaseSlidePayload): string | null {
+  if (body.title !== undefined && (!body.title.trim() || body.title.trim().length < 2)) {
+    return "عنوان نمونه‌کار الزامی است.";
+  }
+  if (body.image !== undefined) {
+    if (!body.image.trim()) return "عکس نمونه‌کار الزامی است.";
+    const imageError = imageInputError(body.image);
+    if (imageError) return imageError;
+  }
+  if (body.href && body.href.trim().length > 300) return "لینک بیش از حد طولانی است.";
+  if (body.alt && body.alt.trim().length > 300) return "متن جایگزین عکس بیش از حد طولانی است.";
+  if (body.description && body.description.trim().length > 400) return "توضیح کوتاه باید کمتر از ۴۰۰ نویسه باشد.";
+  return null;
+}
+
+/** Accepts "/path", "https://…" or a bare path; returns a click-through target. */
+export function normalizeShowcaseHref(value?: string | null) {
+  const href = value?.trim();
+  if (!href) return null;
+  if (href.startsWith("/") || /^https?:\/\//i.test(href)) return href;
+  return `/${href}`;
+}
+
 export function validateProduct(body: ProductPayload, partial = false) {
   const errors: string[] = [];
   if (!partial || body.name !== undefined) {

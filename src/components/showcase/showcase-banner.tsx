@@ -1,8 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { ArrowLeft, ChevronLeft, ChevronRight, Hand, MessageCircle, Pause, Play } from "lucide-react";
-import { SHOWCASE_SLIDES } from "@/components/showcase/showcase-data";
+import {
+  SHOWCASE_DEFAULT_COPY,
+  SHOWCASE_SLIDES,
+  type ShowcaseSlideView,
+} from "@/components/showcase/showcase-data";
 import { LinkButton } from "@/components/ui";
 import { cn, formatNumber } from "@/lib/utils";
 
@@ -12,8 +17,19 @@ const DRAG_LIMIT = 120;
 
 type PointerState = { x: number; y: number; time: number; locked: boolean };
 
-export function ShowcaseBanner() {
-  const total = SHOWCASE_SLIDES.length;
+export function ShowcaseBanner({
+  slides = SHOWCASE_SLIDES,
+  eyebrow = SHOWCASE_DEFAULT_COPY.eyebrow,
+  title = SHOWCASE_DEFAULT_COPY.title,
+  subtitle = SHOWCASE_DEFAULT_COPY.subtitle,
+}: {
+  /** Slides come from Admin → اسلایدشو (falls back to the bundled defaults). */
+  slides?: ShowcaseSlideView[];
+  eyebrow?: string;
+  title?: string;
+  subtitle?: string;
+}) {
+  const total = slides.length;
   const [index, setIndex] = useState(0);
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -23,7 +39,8 @@ export function ShowcaseBanner() {
   const [tabHidden, setTabHidden] = useState(false);
   const pointer = useRef<PointerState | null>(null);
 
-  const active = SHOWCASE_SLIDES[index];
+  const safeIndex = total ? index % total : 0;
+  const active = slides[safeIndex];
   const autoPlaying = playing && !reducedMotion;
 
   const go = useCallback(
@@ -52,7 +69,7 @@ export function ShowcaseBanner() {
 
   /* پخش خودکار */
   useEffect(() => {
-    if (!autoPlaying || hovered || dragging || tabHidden) return;
+    if (!autoPlaying || hovered || dragging || tabHidden || total < 2) return;
     const timer = window.setInterval(() => {
       setIndex((current) => (current + 1) % total);
     }, AUTOPLAY_MS);
@@ -120,6 +137,8 @@ export function ShowcaseBanner() {
     }
   }
 
+  if (!active) return null;
+
   return (
     <section
       aria-roledescription="carousel"
@@ -151,7 +170,7 @@ export function ShowcaseBanner() {
             <div
               role="group"
               aria-roledescription="slide"
-              aria-label={`${formatNumber(index + 1)} از ${formatNumber(total)}: ${active.title}`}
+              aria-label={`${formatNumber(safeIndex + 1)} از ${formatNumber(total)}: ${active.title}`}
               tabIndex={0}
               onKeyDown={handleKeyDown}
               onPointerDown={handlePointerDown}
@@ -164,8 +183,8 @@ export function ShowcaseBanner() {
                 "cursor-grab focus-visible:ring-2 focus-visible:ring-gold/70 active:cursor-grabbing",
               )}
             >
-              {SHOWCASE_SLIDES.map((slide, slideIndex) => {
-                const isActive = slideIndex === index;
+              {slides.map((slide, slideIndex) => {
+                const isActive = slideIndex === safeIndex;
                 return (
                   <div
                     key={slide.id}
@@ -203,25 +222,34 @@ export function ShowcaseBanner() {
         {/* متن تبلیغاتی */}
         <div className="min-w-0 flex-1 text-right lg:max-w-[560px] lg:flex-none">
           <div className="flex items-center gap-2">
-            <span className="hidden h-px w-6 bg-gold/70 sm:block" />
-            <p className="hidden text-[10px] tracking-[0.3em] text-gold sm:block">PORTFOLIO</p>
-            <span className="text-[10px] tracking-[0.14em] text-pearl/55 sm:text-[11px]">نمونه‌کارهای آتلیه</span>
+            <span className="hidden h-px w-6 shrink-0 bg-gold/70 sm:block" />
+            <p className="truncate text-[10px] tracking-[0.2em] text-gold sm:text-[11px]">{eyebrow}</p>
           </div>
 
-          <h2 className="mt-1 text-[16px] font-extrabold leading-[1.55] sm:mt-1.5 sm:text-2xl sm:leading-snug lg:text-[26px]">
-            <span className="hidden sm:inline">گزیده‌ای از </span>
-            <span className="gold-text">نمونه‌کارهای دست‌ساز</span>
-            <span className="hidden sm:inline"> آورالیس</span>
+          <h2 className="mt-1 text-[16px] font-extrabold leading-[1.5] sm:mt-1.5 sm:text-2xl sm:leading-snug lg:text-[26px]">
+            {renderHeadline(title)}
           </h2>
+          {subtitle && (
+            <p className="mt-1 hidden text-[11px] leading-5 text-pearl/55 sm:block">{subtitle}</p>
+          )}
 
           <div aria-live={autoPlaying ? "off" : "polite"} className="mt-1.5">
             <div key={active.id} className="anim-fade-in">
               <div className="flex items-center justify-start gap-2">
                 <span className="text-[10px] tracking-[0.05em] text-gold sm:text-[11px]">
-                  {formatNumber(index + 1)} از {formatNumber(total)}
+                  {formatNumber(safeIndex + 1)} از {formatNumber(total)}
                 </span>
                 <span className="h-3 w-px bg-pearl/25" />
-                <span className="truncate text-[12px] font-bold text-pearl sm:text-sm">{active.title}</span>
+                {active.href ? (
+                  <Link
+                    href={active.href}
+                    className="truncate text-[12px] font-bold text-pearl underline-offset-4 transition hover:text-gold hover:underline sm:text-sm"
+                  >
+                    {active.title}
+                  </Link>
+                ) : (
+                  <span className="truncate text-[12px] font-bold text-pearl sm:text-sm">{active.title}</span>
+                )}
               </div>
               <p className="mt-0.5 hidden truncate text-xs leading-6 text-pearl/55 lg:block">{active.description}</p>
             </div>
@@ -253,8 +281,8 @@ export function ShowcaseBanner() {
           {/* هدایت اسلایدها */}
           <div className="mt-2.5 flex items-center justify-start gap-2.5 sm:mt-3">
             <div className="flex items-center gap-0.5">
-              {SHOWCASE_SLIDES.map((slide, slideIndex) => {
-                const isActive = slideIndex === index;
+              {slides.map((slide, slideIndex) => {
+                const isActive = slideIndex === safeIndex;
                 return (
                   <button
                     key={slide.id}
@@ -295,6 +323,20 @@ export function ShowcaseBanner() {
         </div>
       </div>
     </section>
+  );
+}
+
+/** Turns "گزیده‌ای از {نمونه‌کارهای دست‌ساز} آورالیس" into gold-accented JSX. */
+function renderHeadline(title: string) {
+  const parts = title.split(/(\{[^}]+\})/g).filter(Boolean);
+  return parts.map((part, i) =>
+    part.startsWith("{") && part.endsWith("}") ? (
+      <span key={i} className="gold-text">
+        {part.slice(1, -1)}
+      </span>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
   );
 }
 
