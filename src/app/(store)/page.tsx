@@ -6,11 +6,13 @@ import { categories, products } from "@/db/schema";
 import { seedIfEmpty } from "@/db/seed";
 import { ProductCard } from "@/components/product-card";
 import { BrandIntro } from "@/components/hero/brand-intro";
+import { ShowcaseBanner } from "@/components/showcase/showcase-banner";
 import { PearlField } from "@/components/hero/hero-motion";
 import { HeroCopy } from "@/components/hero/hero-copy";
 import { HeroVisual } from "@/components/hero/hero-visual";
 import { LinkButton } from "@/components/ui";
 import { getSettings } from "@/lib/server";
+import { listShowcaseSlides, showcaseCopy } from "@/lib/showcase";
 import { formatNumber } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +32,7 @@ const TESTIMONIALS = [
 
 export default async function HomePage() {
   await seedIfEmpty();
-  const [featured, cats, newest, settings] = await Promise.all([
+  const [featured, cats, newest, settings, showcaseSlides] = await Promise.all([
     db.query.products.findMany({
       where: eq(products.isFeatured, true),
       with: { category: true },
@@ -40,11 +42,23 @@ export default async function HomePage() {
     db.query.categories.findMany({ orderBy: [asc(categories.sortOrder)] }),
     db.query.products.findMany({ where: eq(products.isActive, true), orderBy: [desc(products.createdAt)], limit: 4, with: { category: true } }),
     getSettings(),
+    listShowcaseSlides(),
   ]);
   const activeFeatured = featured.filter((p) => p.isActive);
+  const showcaseText = showcaseCopy(settings);
 
   return (
     <div>
+      {/* اسلایدشوی تبلیغاتی نمونه‌کارها — بالای صفحه اصلی (از پنل مدیریت قابل تغییر است) */}
+      {settings.showcaseEnabled && showcaseSlides.length > 0 && (
+        <ShowcaseBanner
+          slides={showcaseSlides}
+          eyebrow={showcaseText.eyebrow}
+          title={showcaseText.title}
+          subtitle={showcaseText.subtitle}
+        />
+      )}
+
       {/* Hero — 2D motion stage */}
       <section className="pearl-sheen relative overflow-hidden">
         <BrandIntro />

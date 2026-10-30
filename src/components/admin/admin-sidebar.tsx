@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CreditCard, LayoutDashboard, LogOut, Menu, MessageCircle, Package, Settings, ShoppingBag, Store, Tags, Users, X } from "lucide-react";
+import { CreditCard, GalleryHorizontalEnd, LayoutDashboard, LogOut, Menu, MessageCircle, Package, Settings, ShoppingBag, Store, Tags, Users, X } from "lucide-react";
 import type { SafeUser } from "@/db/schema";
 import { cn, formatNumber } from "@/lib/utils";
 
@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/admin/messages", label: "گفتگوها", icon: MessageCircle, badge: "messages" as const },
   { href: "/admin/products", label: "محصولات", icon: Package },
   { href: "/admin/categories", label: "دسته‌بندی‌ها", icon: Tags },
+  { href: "/admin/showcase", label: "اسلایدشوی نمونه‌کارها", icon: GalleryHorizontalEnd },
   { href: "/admin/customers", label: "مشتریان", icon: Users },
   { href: "/admin/settings", label: "پرداخت و تنظیمات", icon: CreditCard },
 ];
