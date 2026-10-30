@@ -7,8 +7,8 @@ import { LinkButton } from "@/components/ui";
 import { cn, formatNumber } from "@/lib/utils";
 
 const AUTOPLAY_MS = 7000;
-const SWIPE_THRESHOLD = 44;
-const DRAG_LIMIT = 150;
+const SWIPE_THRESHOLD = 36;
+const DRAG_LIMIT = 120;
 
 type PointerState = { x: number; y: number; time: number; locked: boolean };
 
@@ -97,7 +97,7 @@ export function ShowcaseBanner() {
 
     const deltaX = event.clientX - state.x;
     const elapsed = Date.now() - state.time;
-    const flick = Math.abs(deltaX) > 18 && elapsed < 320;
+    const flick = Math.abs(deltaX) > 16 && elapsed < 320;
 
     // در چیدمان راست‌به‌چپ، کشیدن به چپ یعنی نمونه‌کار بعدی
     if (deltaX <= -SWIPE_THRESHOLD || (flick && deltaX < 0)) go(1);
@@ -134,139 +134,125 @@ export function ShowcaseBanner() {
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div
           key={active.id}
-          className="anim-fade-in absolute inset-0 scale-125 bg-cover bg-center opacity-40 blur-3xl"
+          className="anim-fade-in absolute inset-0 scale-125 bg-cover bg-center opacity-35 blur-3xl"
           style={{ backgroundImage: `url(${active.src})` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-ink/80 via-ink/70 to-ink/95" />
-        <div className="absolute inset-0 bg-[radial-gradient(70%_130%_at_88%_30%,rgba(201,169,110,0.22),transparent_65%)]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-ink/85 via-ink/75 to-ink/95" />
+        <div className="absolute inset-0 bg-[radial-gradient(60%_150%_at_90%_40%,rgba(201,169,110,0.2),transparent_65%)]" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-gold/60 to-transparent" />
       </div>
 
-      <div className="mx-auto grid max-w-7xl items-center gap-5 px-4 py-5 sm:gap-6 sm:px-6 sm:py-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-14 lg:py-6">
-        {/* متن تبلیغاتی */}
-        <div className="order-2 text-center lg:order-1 lg:text-right">
-          <div className="flex items-center justify-center gap-2.5 sm:gap-3 lg:justify-start">
-            <span className="h-px w-7 bg-gold/70 sm:w-8" />
-            <p className="text-[10px] tracking-[0.3em] text-gold sm:text-[11px] sm:tracking-[0.34em]">PORTFOLIO</p>
-            <span className="text-[10px] tracking-[0.15em] text-pearl/55 sm:text-[11px] sm:tracking-[0.2em]">
-              نمونه‌کارهای آتلیه
-            </span>
-          </div>
+      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-4 sm:gap-6 sm:px-6 sm:py-5 lg:flex-row-reverse lg:justify-center lg:gap-12">
+        {/* قاب نمونه‌کار */}
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+          <ArrowButton label="نمونه‌کار قبلی" onClick={() => go(-1)} icon={<ChevronRight className="size-4" />} className="hidden sm:flex" />
 
-          <h2 className="mt-2.5 text-[21px] font-extrabold leading-[1.5] sm:mt-3 sm:text-3xl sm:leading-snug">
-            <span className="hidden sm:inline">گزیده‌ای از </span>
-            <span className="gold-text">نمونه‌کارهای دست‌ساز</span>
-            <span> آورالیس</span>
-          </h2>
+          <div className="rounded-[20px] bg-gradient-to-b from-gold/70 via-gold/25 to-gold/60 p-[4px] shadow-luxe">
+            <div
+              role="group"
+              aria-roledescription="slide"
+              aria-label={`${formatNumber(index + 1)} از ${formatNumber(total)}: ${active.title}`}
+              tabIndex={0}
+              onKeyDown={handleKeyDown}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={(event) => finishDrag(event, true)}
+              onPointerCancel={(event) => finishDrag(event, false)}
+              onDragStart={(event) => event.preventDefault()}
+              className={cn(
+                "relative aspect-[3/4] w-[124px] touch-pan-y select-none overflow-hidden rounded-[16px] bg-ink outline-none sm:w-[152px] lg:w-[140px]",
+                "cursor-grab focus-visible:ring-2 focus-visible:ring-gold/70 active:cursor-grabbing",
+              )}
+            >
+              {SHOWCASE_SLIDES.map((slide, slideIndex) => {
+                const isActive = slideIndex === index;
+                return (
+                  <div
+                    key={slide.id}
+                    aria-hidden={!isActive}
+                    className="absolute inset-0"
+                    style={{
+                      opacity: isActive ? 1 : 0,
+                      transform: isActive ? `translate3d(${offset * 0.4}px, 0, 0)` : "scale(1.06)",
+                      transition: dragging ? "none" : "opacity 600ms ease, transform 750ms cubic-bezier(0.22, 1, 0.36, 1)",
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={slide.src}
+                      alt={slide.alt}
+                      width={600}
+                      height={800}
+                      draggable={false}
+                      loading={slideIndex === 0 ? "eager" : "lazy"}
+                      fetchPriority={slideIndex === 0 ? "high" : "auto"}
+                      className="pointer-events-none size-full object-cover"
+                    />
+                  </div>
+                );
+              })}
 
-          <p className="mx-auto mt-3 hidden max-w-xl text-sm leading-8 text-pearl/65 sm:block lg:mx-0">
-            هر تصویر، یک سفارش واقعی از آتلیه ماست؛ از جاکلیدی‌های اسم و پلاک تا جعبه‌های جواهر مرواریدی. با کشیدن تصویر یا
-            دکمه‌های کنار آن، نمونه‌کارهای بعدی را ببینید.
-          </p>
-
-          <div
-            aria-live={autoPlaying ? "off" : "polite"}
-            className="mt-3.5 flex min-h-[42px] flex-col justify-center sm:mt-4 sm:min-h-[52px] lg:mt-5"
-          >
-            <div key={active.id} className="anim-fade-in">
-              <div className="flex items-center justify-center gap-2.5 lg:justify-start">
-                <span className="font-serif text-xs tracking-[0.25em] text-gold">
-                  {formatNumber(index + 1)} / {formatNumber(total)}
-                </span>
-                <span className="h-3.5 w-px bg-pearl/25" />
-                <span className="text-[13px] font-bold text-pearl sm:text-sm">{active.title}</span>
-              </div>
-              <p className="mt-1 hidden text-xs leading-6 text-pearl/60 sm:block">{active.description}</p>
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/40 via-transparent to-transparent" />
+              <div className="pointer-events-none absolute inset-0 rounded-[16px] border border-pearl/15" />
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 lg:justify-start">
+          <ArrowButton label="نمونه‌کار بعدی" onClick={() => go(1)} icon={<ChevronLeft className="size-4" />} className="hidden sm:flex" />
+        </div>
+
+        {/* متن تبلیغاتی */}
+        <div className="min-w-0 flex-1 text-right lg:max-w-[560px] lg:flex-none">
+          <div className="flex items-center gap-2">
+            <span className="hidden h-px w-6 bg-gold/70 sm:block" />
+            <p className="hidden text-[10px] tracking-[0.3em] text-gold sm:block">PORTFOLIO</p>
+            <span className="text-[10px] tracking-[0.14em] text-pearl/55 sm:text-[11px]">نمونه‌کارهای آتلیه</span>
+          </div>
+
+          <h2 className="mt-1 text-[16px] font-extrabold leading-[1.55] sm:mt-1.5 sm:text-2xl sm:leading-snug lg:text-[26px]">
+            <span className="hidden sm:inline">گزیده‌ای از </span>
+            <span className="gold-text">نمونه‌کارهای دست‌ساز</span>
+            <span className="hidden sm:inline"> آورالیس</span>
+          </h2>
+
+          <div aria-live={autoPlaying ? "off" : "polite"} className="mt-1.5">
+            <div key={active.id} className="anim-fade-in">
+              <div className="flex items-center justify-start gap-2">
+                <span className="text-[10px] tracking-[0.05em] text-gold sm:text-[11px]">
+                  {formatNumber(index + 1)} از {formatNumber(total)}
+                </span>
+                <span className="h-3 w-px bg-pearl/25" />
+                <span className="truncate text-[12px] font-bold text-pearl sm:text-sm">{active.title}</span>
+              </div>
+              <p className="mt-0.5 hidden truncate text-xs leading-6 text-pearl/55 lg:block">{active.description}</p>
+            </div>
+          </div>
+
+          <div className="mt-2.5 flex flex-wrap items-center justify-start gap-2 sm:mt-3">
             <LinkButton
               href="/products"
               variant="gold"
               size="sm"
-              className="light-sweep h-10 px-4 text-[13px] sm:h-11 sm:px-5 sm:text-sm"
+              className="light-sweep h-9 px-3.5 text-[12px] sm:h-10 sm:px-4 sm:text-[13px]"
             >
               دیدن محصولات
-              <ArrowLeft className="size-4" />
+              <ArrowLeft className="size-3.5" />
             </LinkButton>
-            <LinkButton
-              href="/account/messages/new"
-              variant="secondary"
-              size="sm"
-              className="h-10 border-pearl/30 bg-transparent px-4 text-[13px] text-pearl hover:border-gold hover:bg-pearl/10 sm:h-11 sm:px-5 sm:text-sm"
-            >
-              <MessageCircle className="size-4" />
-              سفارش اختصاصی
-            </LinkButton>
-          </div>
-        </div>
-
-        {/* قاب تصویر + ناوبری */}
-        <div className="order-1 flex flex-col items-center lg:order-2">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <ArrowButton label="نمونه‌کار قبلی" onClick={() => go(-1)} icon={<ChevronRight className="size-5" />} />
-
-            <div className="rounded-[26px] bg-gradient-to-b from-gold/70 via-gold/25 to-gold/60 p-[5px] shadow-luxe">
-              <div
-                role="group"
-                aria-roledescription="slide"
-                aria-label={`${formatNumber(index + 1)} از ${formatNumber(total)}: ${active.title}`}
-                tabIndex={0}
-                onKeyDown={handleKeyDown}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={(event) => finishDrag(event, true)}
-                onPointerCancel={(event) => finishDrag(event, false)}
-                onDragStart={(event) => event.preventDefault()}
-                className={cn(
-                  "relative aspect-[3/4] w-[50vw] max-w-[184px] touch-pan-y select-none overflow-hidden rounded-[21px] bg-ink outline-none sm:max-w-[212px] lg:max-w-[258px]",
-                  "cursor-grab focus-visible:ring-2 focus-visible:ring-gold/70 active:cursor-grabbing",
-                )}
+            <span className="hidden sm:inline-flex">
+              <LinkButton
+                href="/account/messages/new"
+                variant="secondary"
+                size="sm"
+                className="h-10 border-pearl/30 bg-transparent px-4 text-[13px] text-pearl hover:border-gold hover:bg-pearl/10"
               >
-                {SHOWCASE_SLIDES.map((slide, slideIndex) => {
-                  const isActive = slideIndex === index;
-                  return (
-                    <div
-                      key={slide.id}
-                      aria-hidden={!isActive}
-                      className="absolute inset-0"
-                      style={{
-                        opacity: isActive ? 1 : 0,
-                        transform: isActive ? `translate3d(${offset * 0.4}px, 0, 0)` : "scale(1.06)",
-                        transition: dragging
-                          ? "none"
-                          : "opacity 700ms ease, transform 800ms cubic-bezier(0.22, 1, 0.36, 1)",
-                      }}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={slide.src}
-                        alt={slide.alt}
-                        width={810}
-                        height={1080}
-                        draggable={false}
-                        loading={slideIndex === 0 ? "eager" : "lazy"}
-                        fetchPriority={slideIndex === 0 ? "high" : "auto"}
-                        className="pointer-events-none size-full object-cover"
-                      />
-                    </div>
-                  );
-                })}
-
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/45 via-transparent to-transparent" />
-                <div className="pointer-events-none absolute inset-0 rounded-[21px] border border-pearl/15" />
-              </div>
-            </div>
-
-            <ArrowButton label="نمونه‌کار بعدی" onClick={() => go(1)} icon={<ChevronLeft className="size-5" />} />
+                <MessageCircle className="size-3.5" />
+                سفارش اختصاصی
+              </LinkButton>
+            </span>
           </div>
 
-          {/* بندانگشتی‌ها + کنترل پخش */}
-          <div className="mt-2.5 grid w-full grid-cols-[1fr_auto_1fr] items-center sm:mt-3">
-            <span aria-hidden />
-
-            <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+          {/* هدایت اسلایدها */}
+          <div className="mt-2.5 flex items-center justify-start gap-2.5 sm:mt-3">
+            <div className="flex items-center gap-0.5">
               {SHOWCASE_SLIDES.map((slide, slideIndex) => {
                 const isActive = slideIndex === index;
                 return (
@@ -276,53 +262,62 @@ export function ShowcaseBanner() {
                     onClick={() => setIndex(slideIndex)}
                     aria-label={`نمایش ${slide.title}`}
                     aria-current={isActive ? "true" : undefined}
-                    className={cn(
-                      "relative h-10 w-[30px] overflow-hidden rounded-md border transition duration-300 sm:h-12 sm:w-9",
-                      isActive
-                        ? "border-gold opacity-100 shadow-[0_0_0_2px_rgba(201,169,110,0.28)]"
-                        : "border-pearl/20 opacity-55 hover:opacity-90",
-                    )}
+                    className="group flex h-6 items-center rounded-full px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/70"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={slide.src} alt="" width={810} height={1080} loading="lazy" className="size-full object-cover" />
-                    <span className={cn("absolute inset-0 transition", isActive ? "bg-transparent" : "bg-ink/45")} />
+                    <span
+                      className={cn(
+                        "block h-1.5 rounded-full transition-all duration-300",
+                        isActive ? "w-5 bg-gold" : "w-1.5 bg-pearl/30 group-hover:bg-pearl/60",
+                      )}
+                    />
                   </button>
                 );
               })}
             </div>
 
-            {reducedMotion ? (
-              <span aria-hidden />
-            ) : (
+            {!reducedMotion && (
               <button
                 type="button"
                 onClick={() => setPlaying((value) => !value)}
                 aria-label={playing ? "توقف پخش خودکار" : "پخش خودکار اسلایدها"}
                 title={playing ? "توقف پخش خودکار" : "پخش خودکار"}
-                className="flex size-8 items-center justify-center justify-self-start rounded-full border border-pearl/15 text-pearl/55 transition hover:border-gold/50 hover:text-pearl focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/70"
+                className="flex size-6 items-center justify-center rounded-full text-pearl/40 transition hover:bg-pearl/10 hover:text-pearl focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/70"
               >
-                {autoPlaying ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
+                {autoPlaying ? <Pause className="size-2.5" /> : <Play className="size-2.5" />}
               </button>
             )}
-          </div>
 
-          <p className="mt-2 flex items-center gap-1.5 text-[10px] text-pearl/40 sm:hidden">
-            <Hand className="size-3" />
-            برای دیدن بعدی، تصویر را بکشید
-          </p>
+            <span className="hidden items-center gap-1 text-[10px] text-pearl/35 sm:flex">
+              <Hand className="size-3" />
+              برای ورق‌زدن بکشید
+            </span>
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-function ArrowButton({ label, onClick, icon }: { label: string; onClick: () => void; icon: React.ReactNode }) {
+function ArrowButton({
+  label,
+  onClick,
+  icon,
+  className,
+}: {
+  label: string;
+  onClick: () => void;
+  icon: React.ReactNode;
+  className?: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex size-9 shrink-0 items-center justify-center rounded-full border border-pearl/20 bg-pearl/5 text-pearl/80 backdrop-blur-sm transition hover:border-gold/70 hover:bg-gold/15 hover:text-pearl focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 sm:size-11"
+      className={cn(
+        "size-8 shrink-0 items-center justify-center rounded-full border border-pearl/20 bg-pearl/5 text-pearl/80 backdrop-blur-sm transition hover:border-gold/70 hover:bg-gold/15 hover:text-pearl focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/70",
+        className,
+      )}
     >
       {icon}
     </button>
