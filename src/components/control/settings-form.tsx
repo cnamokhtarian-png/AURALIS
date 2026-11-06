@@ -52,7 +52,14 @@ type SupabaseStatus = {
   hint: string;
 };
 
-type Payload = { settings: Record<string, SettingState>; telegram: TelegramStatus; supabase: SupabaseStatus };
+type DatabaseStatus = { ready: boolean; missing: string[]; error: string | null };
+
+type Payload = {
+  settings: Record<string, SettingState>;
+  telegram: TelegramStatus;
+  supabase: SupabaseStatus;
+  database?: DatabaseStatus;
+};
 
 const FIELDS = [
   {
@@ -242,6 +249,8 @@ export function SettingsForm({ initial }: { initial: Payload }) {
         </div>
       </Panel>
 
+      <DatabasePanel database={data.database} onCheck={() => void post({ action: "test-supabase" }, "dbtest")} busy={busy} />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="وضعیت ربات تلگرام" subtitle="تست زنده ارتباط با سرور تلگرام" action={<Bot className="size-4 text-emerald-300" />}>
           <div className="space-y-2">
@@ -329,6 +338,59 @@ export function SettingsForm({ initial }: { initial: Payload }) {
         </Panel>
       </div>
     </div>
+  );
+}
+
+function DatabasePanel({
+  database,
+  onCheck,
+  busy,
+}: {
+  database?: DatabaseStatus;
+  onCheck: () => void;
+  busy: string | null;
+}) {
+  const ready = database?.ready;
+  return (
+    <Panel
+      title="پایگاه‌داده اصلی (داشبورد)"
+      subtitle="جدول‌های مرکز کنترل روی DATABASE_URL همین پروژه"
+      action={<Database className="size-4 text-emerald-300" />}
+    >
+      {!database ? (
+        <p className="text-[11px] text-[#7d92aa]">در حال بررسی…</p>
+      ) : ready ? (
+        <p className="flex items-center gap-2 rounded-xl border border-emerald-400/25 bg-emerald-400/[0.07] p-3 text-[11px] text-emerald-200">
+          <CheckCircle2 className="size-3.5" /> همه جدول‌ها آماده‌اند؛ می‌توانید پروژه اضافه کنید.
+        </p>
+      ) : (
+        <div className="rounded-xl border border-amber-400/25 bg-amber-400/[0.07] p-3 text-[11px] leading-6 text-amber-200">
+          <p className="mb-1 flex items-center gap-1.5 font-semibold">
+            <AlertTriangle className="size-3.5" /> جدول‌های لازم ساخته نشده‌اند
+            {database.missing.length ? <span className="cc-mono cc-ltr text-[10px]">({database.missing.join(", ")})</span> : null}
+          </p>
+          <p>
+            در Supabase → SQL Editor فایل{" "}
+            <a
+              href="https://github.com/cnamokhtarian-png/AURALIS/blob/arena/e9e2d896-auralis/supabase/all-in-one.sql"
+              target="_blank"
+              rel="noreferrer"
+              className="text-emerald-300 underline"
+            >
+              supabase/all-in-one.sql
+            </a>{" "}
+            را یک‌بار اجرا کنید (همه مایگریشن‌ها، اجرای دوباره هم بی‌خطر است).
+          </p>
+          {database.error && <p className="cc-mono cc-ltr mt-1 text-[10px] text-amber-200/70">{database.error}</p>}
+        </div>
+      )}
+      <div className="mt-3 flex justify-end">
+        <button onClick={onCheck} disabled={busy !== null} className="cc-btn cc-btn-ghost">
+          {busy === "dbtest" ? <Loader2 className="size-4 animate-spin" /> : <Wifi className="size-4" />}
+          بررسی مجدد
+        </button>
+      </div>
+    </Panel>
   );
 }
 

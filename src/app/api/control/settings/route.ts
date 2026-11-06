@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { walletSettings } from "@/db/schema";
 import { bad, ok, readJson, requireOperator } from "@/lib/control/api";
@@ -80,8 +80,10 @@ export async function GET(req: Request) {
   }
 
   const remote = await remoteStatus();
+  const database = await checkDatabase();
 
   return ok({
+    database,
     settings,
     telegram: {
       configured: Boolean(settings[SETTING_KEYS.telegramToken]?.hasValue),
@@ -93,6 +95,30 @@ export async function GET(req: Request) {
     },
     supabase: remote,
   });
+}
+
+/** Is the schema (migrations 0004/0005) present on the app's own database? */
+async function checkDatabase() {
+  try {
+    const result = await db.execute(
+      sql`select to_regclass('public.projects') is not null as projects,
+                 to_regclass('public.app_settings') is not null as settings,
+                 to_regclass('public.users') is not null as users`,
+    );
+    const row = (result.rows?.[0] ?? {}) as { projects?: boolean; settings?: boolean; users?: boolean };
+    const missing = [
+      row.projects ? null : "projects",
+      row.settings ? null : "app_settings",
+      row.users ? null : "users",
+    ].filter(Boolean) as string[];
+    return { ready: missing.length === 0, missing, error: null as string | null };
+  } catch (err) {
+    return {
+      ready: false,
+      missing: ["projects", "app_settings", "users"],
+      error: err instanceof Error ? err.message : "اتصال به پایگاه‌داده برقرار نشد.",
+    };
+  }
 }
 
 type Body = {

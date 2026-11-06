@@ -8,9 +8,12 @@ import { appSettings } from "@/db/schema";
  * `app_settings` table so nothing has to be typed into the Vercel dashboard.
  *
  * Resolution order everywhere in the app:
- *   1. `process.env[KEY]`      (Vercel env var — wins, lets you rotate keys fast)
- *   2. encrypted row in `app_settings` (saved from the UI)
+ *   1. the value saved from `/control/settings` (encrypted in `app_settings`)
+ *   2. `process.env[KEY]` — bootstrap / let the platform inject it
  *   3. `fallback`
+ *
+ * The dashboard therefore always wins: whatever the operator types in the form
+ * takes effect immediately, and clearing a field falls back to the env var.
  *
  * Values marked `secret` are encrypted with AES-256-GCM using
  * `APP_ENCRYPTION_KEY` (or a key derived from `DATABASE_URL` when it is unset),
@@ -82,10 +85,12 @@ export function decryptValue(stored: string): string {
 }
 
 export type SettingsSnapshot = {
-  /** Raw stored values (decrypted) — server-side use only. */
+  /** Raw resolved values (decrypted) — server-side use only. */
   stored: Record<string, string>;
-  /** Keys that came from env vars. */
+  /** Keys that also exist as env vars. */
   fromEnv: Record<string, boolean>;
+  /** Keys whose value was saved from the dashboard. */
+  dbOnly: Record<string, boolean>;
 };
 
 let cache: { at: number; snapshot: SettingsSnapshot } | null = null;
@@ -114,6 +119,7 @@ export async function loadSettings(force = false): Promise<SettingsSnapshot> {
 
   const stored: Record<string, string> = {};
   const fromEnv: Record<string, boolean> = {};
+  const dbOnly: Record<string, boolean> = {};
 
   for (const key of Object.values(SETTING_KEYS)) {
     const env = envValue(key);
@@ -127,9 +133,12 @@ export async function loadSettings(force = false): Promise<SettingsSnapshot> {
       .from(appSettings)
       .where(inArray(appSettings.key, Object.values(SETTING_KEYS)));
     for (const row of rows) {
-      if (fromEnv[row.key]) continue; // env wins
+      // Dashboard value wins; an empty row simply reveals the env var again.
       const value = row.isSecret ? decryptValue(row.value ?? "") : (row.value ?? "");
-      if (value) stored[row.key] = value;
+      if (value) {
+        stored[row.key] = value;
+        dbOnly[row.key] = true;
+      }
     }
   } catch (err) {
     // No table yet (migration 0005 not applied) or DB unreachable: the dashboard
@@ -137,7 +146,7 @@ export async function loadSettings(force = false): Promise<SettingsSnapshot> {
     console.warn("[settings] could not read app_settings:", err instanceof Error ? err.message : err);
   }
 
-  const snapshot: SettingsSnapshot = { stored, fromEnv };
+  const snapshot: SettingsSnapshot = { stored, fromEnv, dbOnly };
   cache = { at: Date.now(), snapshot };
   return snapshot;
 }
@@ -190,11 +199,16 @@ export async function describeSettings(): Promise<Record<string, SettingState>> 
       label: labels[key] ?? key,
       value: !value ? "" : secret ? maskSecret(value) : value,
       hasValue: Boolean(value),
-      source: snapshot.fromEnv[key] ? "env" : value ? "db" : "none",
+      source: snapshot.fromEnv[key] && !hasDbValue(snapshot, key) ? "env" : value ? "db" : "none",
       secret,
     };
   }
   return out;
+}
+
+/** True when the stored value came from the dashboard rather than the env. */
+function hasDbValue(snapshot: SettingsSnapshot, key: string) {
+  return Boolean(snapshot.dbOnly[key]);
 }
 
 export function maskSecret(value: string) {
