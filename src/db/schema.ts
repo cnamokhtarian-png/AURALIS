@@ -1,13 +1,16 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  bigint,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   serial,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "customer"]);
@@ -20,6 +23,28 @@ export const orderStatusEnum = pgEnum("order_status", [
   "cancelled",
 ]);
 export const conversationStatusEnum = pgEnum("conversation_status", ["open", "closed"]);
+
+// ---------- Control Center (freelance agent) ----------
+export const projectStatusEnum = pgEnum("project_status", [
+  "found",
+  "proposal_sent",
+  "in_progress",
+  "completed",
+  "rejected",
+]);
+export const chatSenderEnum = pgEnum("chat_sender", ["ai", "client", "user"]);
+export const walletTxStatusEnum = pgEnum("wallet_tx_status", ["pending", "confirmed", "failed"]);
+export const agentTaskKindEnum = pgEnum("agent_task_kind", [
+  "nextjs_scaffold",
+  "translation",
+  "pptx",
+]);
+export const agentTaskStatusEnum = pgEnum("agent_task_status", [
+  "queued",
+  "processing",
+  "done",
+  "failed",
+]);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -186,6 +211,89 @@ export const showcaseSlides = pgTable("showcase_slides", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+
+// ---------- Control Center tables ----------
+
+/** A freelance job picked up by the agent, plus the proposal it wrote for it. */
+export const projects = pgTable(
+  "projects",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    /** Client name or country, e.g. "Ali — UAE" */
+    clientName: text("client_name"),
+    /** Upwork | Freelancer | Direct | ... */
+    platform: text("platform").notNull().default("Direct"),
+    /** Original job post, also used to de-duplicate discoveries. */
+    sourceUrl: text("source_url"),
+    description: text("description"),
+    budgetUsdt: numeric("budget_usdt", { precision: 12, scale: 2 }).notNull().default("0"),
+    currency: text("currency").notNull().default("USDT"),
+    skills: text("skills").array().notNull().default([]),
+    status: projectStatusEnum("status").notNull().default("found"),
+    proposalText: text("proposal_text"),
+    /** Telegram message holding the inline keyboard, so it can be edited later. */
+    telegramMessageId: bigint("telegram_message_id", { mode: "number" }),
+    proposalSentAt: timestamp("proposal_sent_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("projects_source_url_key").on(table.sourceUrl)],
+);
+
+/** Conversation log with the client + AI drafts awaiting approval. */
+export const chats = pgTable("chats", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  sender: chatSenderEnum("sender").notNull(),
+  message: text("message").notNull(),
+  /** true = AI suggestion that still needs a human click before it is sent. */
+  isDraft: boolean("is_draft").notNull().default(false),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  /** Telegram copy of this message (enables replying to it from the bot). */
+  telegramMessageId: bigint("telegram_message_id", { mode: "number" }),
+  timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Single-row table: USDT (TRC-20) payout address + lifetime totals. */
+export const walletSettings = pgTable("wallet_settings", {
+  id: serial("id").primaryKey(),
+  trc20Address: text("trc20_address").notNull().default(""),
+  totalEarnedUsdt: numeric("total_earned_usdt", { precision: 12, scale: 2 })
+    .notNull()
+    .default("0"),
+  network: text("network").notNull().default("TRC-20"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const walletTransactions = pgTable("wallet_transactions", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").references(() => projects.id, { onDelete: "set null" }),
+  amountUsdt: numeric("amount_usdt", { precision: 12, scale: 2 }).notNull(),
+  network: text("network").notNull().default("TRC-20"),
+  txHash: text("tx_hash"),
+  status: walletTxStatusEnum("status").notNull().default("pending"),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Jobs of the automated execution engine (scaffold / translate / slides). */
+export const agentTasks = pgTable("agent_tasks", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  kind: agentTaskKindEnum("kind").notNull(),
+  status: agentTaskStatusEnum("status").notNull().default("queued"),
+  title: text("title").notNull(),
+  input: jsonb("input").notNull().default({}),
+  result: jsonb("result"),
+  error: text("error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ---------- Relations ----------
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -226,6 +334,24 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   sender: one(users, { fields: [messages.senderId], references: [users.id] }),
 }));
 
+export const projectsRelations = relations(projects, ({ many }) => ({
+  chats: many(chats),
+  transactions: many(walletTransactions),
+  tasks: many(agentTasks),
+}));
+
+export const chatsRelations = relations(chats, ({ one }) => ({
+  project: one(projects, { fields: [chats.projectId], references: [projects.id] }),
+}));
+
+export const walletTransactionsRelations = relations(walletTransactions, ({ one }) => ({
+  project: one(projects, { fields: [walletTransactions.projectId], references: [projects.id] }),
+}));
+
+export const agentTasksRelations = relations(agentTasks, ({ one }) => ({
+  project: one(projects, { fields: [agentTasks.projectId], references: [projects.id] }),
+}));
+
 // ---------- Types ----------
 
 export type User = typeof users.$inferSelect;
@@ -239,3 +365,14 @@ export type Message = typeof messages.$inferSelect;
 export type StoreSettings = typeof storeSettings.$inferSelect;
 export type ShowcaseSlide = typeof showcaseSlides.$inferSelect;
 export type OrderStatus = (typeof orderStatusEnum.enumValues)[number];
+export type Project = typeof projects.$inferSelect;
+export type NewProject = typeof projects.$inferInsert;
+export type ProjectStatus = (typeof projectStatusEnum.enumValues)[number];
+export type Chat = typeof chats.$inferSelect;
+export type ChatSender = (typeof chatSenderEnum.enumValues)[number];
+export type WalletSetting = typeof walletSettings.$inferSelect;
+export type WalletTransaction = typeof walletTransactions.$inferSelect;
+export type WalletTxStatus = (typeof walletTxStatusEnum.enumValues)[number];
+export type AgentTask = typeof agentTasks.$inferSelect;
+export type AgentTaskKind = (typeof agentTaskKindEnum.enumValues)[number];
+export type AgentTaskStatus = (typeof agentTaskStatusEnum.enumValues)[number];
