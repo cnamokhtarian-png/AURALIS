@@ -1,12 +1,16 @@
 /**
  * Telegram Bot API transport (no SDK, works on Vercel's Node runtime).
  *
- * Env:
+ * Every credential is resolved through `lib/control/settings`, i.e. Vercel env
+ * var first, then the value the operator saved from `/control/settings`:
+ *
  *   TELEGRAM_BOT_TOKEN        — from @BotFather
  *   TELEGRAM_CHAT_ID          — your numeric id (the bot can discover it: see /api/telegram/setup)
  *   TELEGRAM_WEBHOOK_SECRET   — optional shared secret, verified in the webhook route
  *   APP_URL / NEXT_PUBLIC_APP_URL — public URL of this deployment (for links)
  */
+
+import { getSettingSync, loadSettings, SETTING_KEYS } from "./settings";
 
 const API = "https://api.telegram.org";
 
@@ -25,20 +29,29 @@ export type TelegramResult<T = unknown> =
   | { ok: true; result: T }
   | { ok: false; error: string; description?: string };
 
+/** Env-only fast path (used for rendering flags). */
 export function telegramToken() {
-  return process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
+  return getSettingSync(SETTING_KEYS.telegramToken);
 }
 
+/** Env-only fast path (used for rendering flags). */
 export function telegramChatId() {
-  return process.env.TELEGRAM_CHAT_ID?.trim() || "";
+  return getSettingSync(SETTING_KEYS.telegramChatId);
 }
 
 export function telegramConfigured() {
-  return Boolean(telegramToken() && (telegramChatId() || process.env.TELEGRAM_CHAT_ID));
+  return Boolean(telegramToken() && telegramChatId());
 }
 
-export function appUrl() {
-  const raw = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || "";
+/** Public URL of this deployment: saved setting → env var → Vercel's own URL. */
+export async function appUrl() {
+  const { stored } = await loadSettings();
+  const raw =
+    stored[SETTING_KEYS.appUrl] ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+    process.env.VERCEL_URL ||
+    "";
   if (!raw) return "";
   if (raw.startsWith("http")) return raw.replace(/\/+$/, "");
   return `https://${raw.replace(/\/+$/, "")}`;
@@ -48,8 +61,19 @@ export function escapeHtml(text: string) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+type Credentials = { token: string; chatId: string };
+
+/** Env vars win, then the values saved in the dashboard. */
+export async function telegramCredentials(): Promise<Credentials> {
+  const snapshot = await loadSettings();
+  return {
+    token: snapshot.stored[SETTING_KEYS.telegramToken] ?? "",
+    chatId: snapshot.stored[SETTING_KEYS.telegramChatId] ?? "",
+  };
+}
+
 async function call<T>(method: string, body?: Record<string, unknown>): Promise<TelegramResult<T>> {
-  const token = telegramToken();
+  const { token } = await telegramCredentials();
   if (!token) return { ok: false, error: "not_configured" };
   try {
     const res = await fetch(`${API}/bot${token}/${method}`, {
@@ -70,9 +94,9 @@ async function call<T>(method: string, body?: Record<string, unknown>): Promise<
   }
 }
 
-export function sendMessage(text: string, options: SendOptions = {}) {
-  const chatId = options.chatId ?? telegramChatId();
-  if (!chatId) return Promise.resolve<TelegramResult<unknown>>({ ok: false, error: "no_chat_id" });
+export async function sendMessage(text: string, options: SendOptions = {}): Promise<TelegramResult<unknown>> {
+  const chatId = options.chatId ?? (await telegramCredentials()).chatId;
+  if (!chatId) return { ok: false, error: "no_chat_id" };
   return call<{ message_id: number }>("sendMessage", {
     chat_id: chatId,
     text: text.length > 4000 ? `${text.slice(0, 4000)}…` : text,
@@ -84,12 +108,12 @@ export function sendMessage(text: string, options: SendOptions = {}) {
   });
 }
 
-export function editMessageText(
+export async function editMessageText(
   messageId: number,
   text: string,
   options: { buttons?: InlineButton[][]; chatId?: string | number | null } = {},
 ) {
-  const chatId = options.chatId ?? telegramChatId();
+  const chatId = options.chatId ?? (await telegramCredentials()).chatId;
   return call("editMessageText", {
     chat_id: chatId,
     message_id: messageId,
@@ -164,7 +188,7 @@ export function getUpdates(offset?: number) {
 }
 
 /** Message text for a freshly discovered job, with the approve/reject keyboard. */
-export function projectMessage(project: {
+export async function projectMessage(project: {
   id: number;
   title: string;
   clientName?: string | null;
@@ -176,7 +200,8 @@ export function projectMessage(project: {
   sourceUrl?: string | null;
 }, kind: "new" | "proposal" = "new") {
   const budget = Number(project.budgetUsdt ?? 0);
-  const link = appUrl() ? `${appUrl()}/control/projects/${project.id}` : project.sourceUrl || "";
+  const base = await appUrl();
+  const link = base ? `${base}/control/projects/${project.id}` : project.sourceUrl || "";
   const head = kind === "new" ? "🆕 <b>پروژه جدید یافت شد</b>" : "📄 <b>پیش‌نویس پروپوزال آماده است</b>";
   const lines = [
     head,

@@ -4,10 +4,11 @@ import {
   projectKeyboard,
   projectMessage,
   sendMessage,
-  telegramChatId,
+  telegramCredentials,
   telegramToken,
   type TelegramUpdate,
 } from "@/lib/control/telegram";
+import { loadSettings, SETTING_KEYS } from "@/lib/control/settings";
 import {
   approveProject,
   completeProject,
@@ -45,7 +46,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  const stored = await loadSettings();
+  const secret = stored.stored[SETTING_KEYS.telegramWebhookSecret];
   if (secret) {
     const header = req.headers.get("x-telegram-bot-api-secret-token");
     if (header !== secret) return Response.json({ ok: false }, { status: 401 });
@@ -60,7 +62,7 @@ export async function POST(req: Request) {
 
   try {
     // Ignore strangers if a chat id is configured.
-    const owner = telegramChatId();
+    const owner = (await telegramCredentials()).chatId;
     const incomingChat = update.message?.chat.id ?? update.callback_query?.message?.chat.id;
     if (owner && incomingChat && String(incomingChat) !== owner) {
       return ack();
@@ -164,7 +166,7 @@ async function handleCallback(query: NonNullable<TelegramUpdate["callback_query"
     const fresh = await findProject(projectId);
     await answerCallbackQuery(query.id, "✍️ پروپوزال بازنویسی شد");
     if (messageId && fresh) {
-      await editMessageText(messageId, projectMessage(fresh, "proposal"), {
+      await editMessageText(messageId, await projectMessage(fresh, "proposal"), {
         buttons: projectKeyboard(projectId, fresh.status),
       });
     }

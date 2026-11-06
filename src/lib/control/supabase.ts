@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { loadSettings, SETTING_KEYS } from "./settings";
 
 /**
  * Bridge to the **separate** Supabase project used by the agent workers
@@ -15,42 +16,42 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  * The service-role key is only ever read on the server.
  */
 
-const url = () =>
-  process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim() || "";
+/**
+ * Connection details come from env vars first, then from the credentials saved
+ * on `/control/settings` (encrypted at rest), so the operator never has to open
+ * the Vercel dashboard.
+ */
+type ResolvedConfig = { url: string; serviceKey: string; publicKey: string };
 
-const serviceKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || "";
-
-export const publicKey = () =>
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
-  "";
-
-export function supabaseUrl() {
-  return url();
+async function resolveConfig(): Promise<ResolvedConfig> {
+  const snapshot = await loadSettings();
+  return {
+    url: snapshot.stored[SETTING_KEYS.supabaseUrl] ?? "",
+    serviceKey: snapshot.stored[SETTING_KEYS.supabaseServiceKey] ?? "",
+    publicKey: snapshot.stored[SETTING_KEYS.supabasePublishableKey] ?? "",
+  };
 }
 
-export function supabaseConfigured() {
-  return Boolean(url() && publicKey());
-}
-
-export function supabaseServiceConfigured() {
-  return Boolean(url() && serviceKey());
+export async function supabaseUrl() {
+  return (await resolveConfig()).url;
 }
 
 let cached: SupabaseClient | null = null;
 let cachedKey = "";
 
 /** Server-side client: service role when configured, public key otherwise. */
-export function supabaseAdmin(): SupabaseClient | null {
-  if (!url()) return null;
-  const key = serviceKey() || publicKey();
+export async function supabaseAdmin(): Promise<SupabaseClient | null> {
+  const config = await resolveConfig();
+  if (!config.url) return null;
+  const key = config.serviceKey || config.publicKey;
   if (!key) return null;
-  if (!cached || cachedKey !== key) {
-    cached = createClient(url(), key, {
+  const cacheKey = `${config.url}|${key}`;
+  if (!cached || cachedKey !== cacheKey) {
+    cached = createClient(config.url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
       global: { headers: { "x-application-name": "auralis-control" } },
     });
-    cachedKey = key;
+    cachedKey = cacheKey;
   }
   return cached;
 }
@@ -83,10 +84,11 @@ export type RemoteStatus = {
 
 /** Checks the connection and whether `0004_control_center.sql` ran there. */
 export async function remoteStatus(): Promise<RemoteStatus> {
+  const config = await resolveConfig();
   const base: RemoteStatus = {
-    configured: false,
-    serviceRole: supabaseServiceConfigured(),
-    url: url() || null,
+    configured: Boolean(config.url && (config.publicKey || config.serviceKey)),
+    serviceRole: Boolean(config.serviceKey),
+    url: config.url || null,
     reachable: false,
     tableReady: false,
     projectCount: null,
@@ -94,7 +96,7 @@ export async function remoteStatus(): Promise<RemoteStatus> {
     hint: "",
   };
 
-  const client = supabaseAdmin();
+  const client = await supabaseAdmin();
   if (!client) {
     return {
       ...base,
@@ -128,7 +130,7 @@ export async function remoteStatus(): Promise<RemoteStatus> {
 
 /** Reads jobs discovered by the external worker (status = found). */
 export async function fetchRemoteProjects(limit = 25) {
-  const client = supabaseAdmin();
+  const client = await supabaseAdmin();
   if (!client) return { ok: false as const, error: "not_configured", rows: [] as RemoteProject[] };
   const { data, error } = await client
     .from("projects")
@@ -145,7 +147,7 @@ export async function pushRemoteStatus(
   remoteId: number,
   status: "found" | "proposal_sent" | "in_progress" | "completed" | "rejected",
 ) {
-  const client = supabaseAdmin();
+  const client = await supabaseAdmin();
   if (!client) return { ok: false as const, error: "not_configured" };
   const { error } = await client.from("projects").update({ status }).eq("id", remoteId);
   return error ? { ok: false as const, error: error.message } : { ok: true as const, error: null };

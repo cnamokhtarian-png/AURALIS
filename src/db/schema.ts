@@ -294,6 +294,19 @@ export const agentTasks = pgTable("agent_tasks", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Key/value store for the credentials the operator saves from the dashboard
+ * (`/control/settings`). Values are encrypted at rest (AES-256-GCM with
+ * APP_ENCRYPTION_KEY or a key derived from DATABASE_URL) and the table is
+ * service-role only. Env vars always win over these rows when both exist.
+ */
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value"),
+  isSecret: boolean("is_secret").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ---------- Relations ----------
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -376,3 +389,4 @@ export type WalletTxStatus = (typeof walletTxStatusEnum.enumValues)[number];
 export type AgentTask = typeof agentTasks.$inferSelect;
 export type AgentTaskKind = (typeof agentTaskKindEnum.enumValues)[number];
 export type AgentTaskStatus = (typeof agentTaskStatusEnum.enumValues)[number];
+export type AppSetting = typeof appSettings.$inferSelect;

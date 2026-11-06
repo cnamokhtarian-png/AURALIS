@@ -23,7 +23,7 @@ import {
   listTransactionsWithProjects,
 } from "@/lib/control/data";
 import { faDate, faNumber, relativeTime, STATUS_LABEL, STATUS_STYLE, usdtAmount } from "@/lib/control/shared";
-import { telegramConfigured } from "@/lib/control/telegram";
+import { telegramCredentials } from "@/lib/control/telegram";
 import type { PptxResult } from "@/lib/agent/types";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +49,8 @@ export default async function ControlOverviewPage() {
   }));
 
   const maxMonthly = Math.max(...stats.monthly.map((m) => m.amount), 1);
-  const telegramOk = telegramConfigured();
+  const telegramCreds = await telegramCredentials();
+  const telegramOk = Boolean(telegramCreds.token && telegramCreds.chatId);
 
   return (
     <div className="space-y-6 cc-fade-up">

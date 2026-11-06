@@ -5,7 +5,7 @@ import {
   getMe,
   getWebhookInfo,
   setWebhook,
-  telegramToken,
+  telegramCredentials,
 } from "@/lib/control/telegram";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +15,8 @@ export const dynamic = "force-dynamic";
  * APP_URL when set, otherwise derived from the request (so the webhook always
  * points at the domain the admin is actually using).
  */
-function baseUrlFrom(req: Request) {
-  const explicit = appUrl();
+async function baseUrlFrom(req: Request) {
+  const explicit = await appUrl();
   const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
   const isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(host);
   // Prefer APP_URL, but never let a stale localhost value win on a real deploy.
@@ -31,7 +31,8 @@ export async function GET(req: Request) {
   const guard = await requireOperator();
   if ("response" in guard) return guard.response;
 
-  if (!telegramToken()) {
+  const creds = await telegramCredentials();
+  if (!creds.token) {
     return ok({
       configured: false,
       bot: null,
@@ -42,13 +43,17 @@ export async function GET(req: Request) {
   }
 
   const [me, hook] = await Promise.all([getMe(), getWebhookInfo()]);
-  const base = baseUrlFrom(req);
+  const base = await baseUrlFrom(req);
   return ok({
     configured: true,
     bot: me.ok ? me.result : null,
     webhook: hook.ok ? hook.result : null,
     expectedUrl: base ? `${base}/api/telegram-webhook` : null,
-    message: me.ok ? null : "توکن ربات معتبر نیست.",
+    message: me.ok
+      ? null
+      : me.error === "network_error"
+        ? "ارتباط با سرور تلگرام برقرار نشد (خروجی شبکه یا DNS این سرور را بررسی کنید)."
+        : "توکن ربات معتبر نیست.",
   });
 }
 
@@ -61,7 +66,8 @@ export async function POST(req: Request) {
   const guard = await requireOperator();
   if ("response" in guard) return guard.response;
 
-  if (!telegramToken()) return bad("TELEGRAM_BOT_TOKEN تنظیم نشده است.");
+  const creds = await telegramCredentials();
+  if (!creds.token) return bad("توکن ربات ذخیره نشده است — از /control/settings وارد کنید.");
 
   const body = (await readJson<{ remove?: boolean }>(req)) ?? {};
   const remove = Boolean(body?.remove);
@@ -71,7 +77,7 @@ export async function POST(req: Request) {
     return res.ok ? ok({ ok: true, message: "وب‌هوک حذف شد." }) : bad(`حذف وب‌هوک ناموفق بود: ${res.description ?? res.error}`);
   }
 
-  const base = baseUrlFrom(req);
+  const base = await baseUrlFrom(req);
   if (!base) {
     return bad("آدرس عمومی این دیپلوی مشخص نشد؛ متغیر APP_URL را تنظیم کنید.");
   }

@@ -1,88 +1,86 @@
+import Link from "next/link";
+import { ChevronLeft, ShieldCheck } from "lucide-react";
 import { Panel } from "@/components/control/ui";
-import { TelegramSettings } from "@/components/control/telegram-settings";
+import { SettingsForm } from "@/components/control/settings-form";
 import { DemoSeedButton } from "@/components/control/demo-seed-button";
-import { SupabasePanel } from "@/components/control/supabase-panel";
-import { remoteStatus } from "@/lib/control/supabase";
+import { getWallet } from "@/lib/control/data";
+import { describeSettings, SETTING_KEYS } from "@/lib/control/settings";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "اتصال تلگرام" };
+export const metadata = { title: "تنظیمات" };
 
+/**
+ * Settings page: every credential (Telegram, Supabase, wallet) is entered here
+ * and stored encrypted in `app_settings`; env vars still win when present.
+ * Live connection checks (getMe / webhook / Supabase) run client-side against
+ * `/api/control/settings`, so the page never blocks on the network.
+ */
 export default async function ControlSettingsPage() {
-  const remote = await remoteStatus();
-  const envFlags = {
-    telegramToken: Boolean(process.env.TELEGRAM_BOT_TOKEN),
-    telegramChatId: Boolean(process.env.TELEGRAM_CHAT_ID),
-    telegramSecret: Boolean(process.env.TELEGRAM_WEBHOOK_SECRET),
-    appUrl: Boolean(process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL),
-    openai: Boolean(process.env.OPENAI_API_KEY),
-    cron: Boolean(process.env.CRON_SECRET),
-    supabaseUrl: Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
-    ),
-    supabaseService: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  const settings = await describeSettings();
+
+  // The wallet tab may hold an address that was saved before this page existed.
+  if (!settings[SETTING_KEYS.trc20Address]?.hasValue) {
+    const wallet = await getWallet().catch(() => null);
+    if (wallet?.trc20Address) {
+      settings[SETTING_KEYS.trc20Address] = {
+        ...settings[SETTING_KEYS.trc20Address],
+        value: wallet.trc20Address,
+        hasValue: true,
+        source: "db",
+      };
+    }
+  }
+
+  const initial = {
+    settings,
+    telegram: {
+      configured: Boolean(settings[SETTING_KEYS.telegramToken]?.hasValue),
+      chatId: settings[SETTING_KEYS.telegramChatId]?.value ?? "",
+      bot: null,
+      webhook: null,
+      error: null,
+      expectedUrl: "",
+    },
+    supabase: {
+      configured: false,
+      serviceRole: Boolean(settings[SETTING_KEYS.supabaseServiceKey]?.hasValue),
+      url: settings[SETTING_KEYS.supabaseUrl]?.value || null,
+      reachable: false,
+      tableReady: false,
+      projectCount: null,
+      error: null,
+      hint: "",
+    },
   };
 
   return (
     <div className="space-y-5 cc-fade-up">
-      <header>
-        <h1 className="text-xl font-extrabold text-white">تنظیمات اتصال تلگرام</h1>
-        <p className="mt-1 text-[12px] text-[#8ba0b8]">
-          ربات تلگرام، کانال تایید شماست: هر پروژه، نسخه پیشنهاد و پیام کارفرما به آنجا می‌رود و پاسخ شما برمی‌گردد.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-extrabold text-white">تنظیمات سیستم</h1>
+          <p className="mt-1 text-[12px] text-[#8ba0b8]">
+            توکن ربات، اطلاعات Supabase و آدرس کیف پول تتر را همین‌جا وارد کنید؛ ثبت وب‌هوک با یک کلیک انجام می‌شود.
+          </p>
+        </div>
+        <span className="cc-chip">
+          <ShieldCheck className="size-3.5 text-emerald-300" /> ذخیره‌سازی رمزنگاری‌شده
+        </span>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <TelegramSettings envFlags={envFlags} compact />
-        <SupabasePanel initial={remote} />
-      </div>
+      <SettingsForm initial={initial} />
 
-      <Panel title="داده نمونه" subtitle="برای تست سریع داشبورد در محیط لوکال">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="max-w-xl text-[11px] leading-6 text-[#8ba0b8]">
-            با یک کلیک چند پروژه، گفتگو، تراکنش و آدرس نمونه ساخته می‌شود. این عملیات فقط وقتی
-            <span className="cc-mono"> ALLOW_DEMO_SEED=true </span>
-            باشد اجرا می‌شود و ردیف‌های تکراری نمی‌سازد.
-          </p>
+      <Panel title="راهنمای سریع" subtitle="سه قدم تا فعال شدن کامل">
+        <ol className="space-y-3 text-[11px] leading-6 text-[#8ba0b8]">
+          <li>۱. توکن ربات تلگرام و شناسه چت را وارد و «ذخیره تنظیمات» را بزنید (توکن خودکار تست می‌شود).</li>
+          <li>۲. «ثبت خودکار وب‌هوک» را بزنید تا تلگرام پیام‌ها و دکمه‌های تایید را به همین سایت بفرستد.</li>
+          <li>۳. «پیام آزمایشی» را بزنید؛ اگر پیام رسید، سیستم آماده است — سپس اولین پروژه را اضافه کنید.</li>
+        </ol>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+          <Link href="/control" className="cc-btn cc-btn-ghost">
+            <ChevronLeft className="size-4" /> بازگشت به داشبورد
+          </Link>
           <DemoSeedButton />
         </div>
-      </Panel>
-
-      <Panel title="مسیرهای API ایجنت" subtitle="برای اتصال به n8n، cron یا اسکریپت‌های کشف پروژه">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-right text-[11px]">
-            <thead className="text-[#8ba0b8]">
-              <tr>
-                <th className="px-3 py-2 font-medium">متد</th>
-                <th className="px-3 py-2 font-medium">مسیر</th>
-                <th className="px-3 py-2 font-medium">کاربرد</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#182436]">
-              {[
-                ["GET / POST", "/api/control/projects", "فهرست پروژه‌ها / ثبت پروژه جدید (با notify به تلگرام)"],
-                ["PATCH / DELETE", "/api/control/projects/:id", "تایید، رد، شروع، تکمیل، بازنویسی پروپوزال"],
-                ["GET / POST", "/api/control/chats", "گفتگوها، پیش‌نویس‌ها، پاسخ ایجنت، ثبت پیام کارفرما"],
-                ["GET / POST", "/api/control/wallet", "آدرس TRC-20 و تراکنش‌ها"],
-                ["GET / POST", "/api/control/tasks", "اجرای ماموریت Next.js / ترجمه / پاورپوینت"],
-                ["GET", "/api/control/tasks/:id/download", "دانلود ZIP / PPTX / متن"],
-                ["POST", "/api/telegram-webhook", "دریافت آپدیت‌های تلگرام (bot webhook)"],
-                ["GET", "/api/control/agent/cron?secret=…", "حلقه ایجنت: پیشنهاد و اطلاع‌رسانی پروژه‌های جدید"],
-              ].map(([method, path, use]) => (
-                <tr key={path}>
-                  <td className="cc-ltr cc-mono px-3 py-2 text-[10px] text-emerald-300">{method}</td>
-                  <td className="cc-ltr cc-mono px-3 py-2 text-[10px] text-[#c7d6e6]">{path}</td>
-                  <td className="px-3 py-2 text-[#8ba0b8]">{use}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-3 text-[10px] leading-5 text-[#5e7288]">
-          همه‌ی این مسیرها به‌جز وب‌هوک تلگرام، فقط با نشست مدیر (کوکی) کار می‌کنند. برای اسکریپت‌های خارجی از
-          <span className="cc-mono"> Authorization: Bearer $CRON_SECRET </span>
-          روی مسیر cron استفاده کنید.
-        </p>
       </Panel>
     </div>
   );

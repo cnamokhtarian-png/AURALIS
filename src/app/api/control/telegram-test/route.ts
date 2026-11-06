@@ -1,5 +1,5 @@
 import { bad, ok, requireOperator } from "@/lib/control/api";
-import { appUrl, sendMessage, telegramChatId, telegramToken } from "@/lib/control/telegram";
+import { appUrl, sendMessage, telegramCredentials } from "@/lib/control/telegram";
 
 export const dynamic = "force-dynamic";
 
@@ -8,20 +8,22 @@ export async function POST() {
   const guard = await requireOperator();
   if ("response" in guard) return guard.response;
 
-  if (!telegramToken()) return bad("TELEGRAM_BOT_TOKEN تنظیم نشده است.");
-  if (!telegramChatId()) return bad("TELEGRAM_CHAT_ID تنظیم نشده است.");
+  const creds = await telegramCredentials();
+  if (!creds.token) return bad("توکن ربات ذخیره نشده است — از /control/settings وارد کنید.");
+  if (!creds.chatId) return bad("شناسه چت ذخیره نشده است — از /control/settings وارد کنید.");
 
+  const base = await appUrl();
   const res = await sendMessage(
     [
       "🤖 <b>ارتباط برقرار شد</b>",
       "",
       "این پیام آزمایشی از مرکز کنترل آورالیس است.",
       "از این پس هر پروژه جدید با دکمه‌های تایید/رد به همین چت می‌آید.",
-      appUrl() ? `\n🔗 <a href="${appUrl()}/control">باز کردن داشبورد</a>` : "",
+      base ? `\n🔗 <a href="${base}/control">باز کردن داشبورد</a>` : "",
     ]
       .filter(Boolean)
       .join("\n"),
-    { buttons: [[{ text: "📂 باز کردن مرکز کنترل", url: `${appUrl() || "https://t.me"}/control` }]] },
+    { buttons: [[{ text: "📂 باز کردن مرکز کنترل", url: `${base || "https://t.me"}/control` }]] },
   );
 
   if (!res.ok) return bad(`ارسال ناموفق بود: ${res.description ?? res.error}`);

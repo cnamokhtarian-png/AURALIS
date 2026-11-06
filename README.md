@@ -141,7 +141,7 @@ RLS برای نقش‌های `anon`/`authenticated` فعال و دسترسی آ�
 | `OPENAI_API_KEY` / `LLM_MODEL` / `LLM_BASE_URL` | اختیاری؛ فعال‌سازی مدل زبانی برای پروپوزال و ترجمه |
 | `CRON_SECRET` | محافظت از `/api/control/agent/cron` (Vercel Cron) |
 | `AGENT_AUTHOR_NAME` | امضای پایانی پروپوزال‌ها |
-| `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (یا `NEXT_PUBLIC_SUPABASE_ANON_KEY`) | به‌روزرسانی زنده + پل پروژهٔ Supabase دوم |
+| `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (یا `NEXT_PUBLIC_SUPABASE_ANON_KEY`) | به‌روزرسانی زنده؛ برابر با همان مقادیر فرم تنظیمات |
 | `SUPABASE_SERVICE_ROLE_KEY` | اختیاری؛ خواندن/نوشتن سروری در پروژهٔ Supabase دوم |
 
 ## اتصال تلگرام (Human-in-the-Loop)
@@ -206,6 +206,15 @@ create policy "operator can read projects" on projects
 ```
 
 بدون این پالیسی، همه‌چیز کار می‌کند و فقط آپدیت زنده غیرفعال می‌ماند.
+
+## تنظیمات از داخل داشبورد (بدون دست زدن به Vercel)
+
+کلیدها را در `/control/settings` وارد کنید: توکن ربات تلگرام، شناسه چت، آدرس سایت،
+آدرس و کلیدهای Supabase و آدرس کیف پول USDT (TRC-20). دکمه‌های «ثبت خودکار وب‌هوک»،
+«پیام آزمایشی» و «تست اتصال» همان‌جا هستند. مقادیر در جدول `app_settings` با
+AES-256-GCM رمزنگاری می‌شوند (مایگریشن `0005_app_settings.sql`)، در API ماسک
+برمی‌گردند و متغیر محیطی — اگر ست شده باشد — اولویت دارد. جزئیات:
+`docs/CONTROL-CENTER-SETUP.md`.
 
 ## راه‌اندازی گام‌به‌گام (برای شروع سریع)
 

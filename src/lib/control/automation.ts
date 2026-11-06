@@ -348,8 +348,8 @@ export async function runTask(task: AgentTask): Promise<ActionResult> {
 
 // ── discovery (new job → Telegram) ─────────────────────────────────────────
 
-export function notifyProject(project: Project) {
-  return sendMessage(projectMessage(project, project.proposalText ? "proposal" : "new"), {
+export async function notifyProject(project: Project) {
+  return sendMessage(await projectMessage(project, project.proposalText ? "proposal" : "new"), {
     buttons: projectKeyboard(project.id, project.status),
   });
 }
