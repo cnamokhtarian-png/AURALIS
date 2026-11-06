@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CreditCard, GalleryHorizontalEnd, LayoutDashboard, LogOut, Menu, MessageCircle, Package, Settings, ShoppingBag, Store, Tags, Users, X } from "lucide-react";
+import { Bot, CreditCard, GalleryHorizontalEnd, LayoutDashboard, LogOut, Menu, MessageCircle, Package, ShoppingBag, Store, Tags, Users, X } from "lucide-react";
 import type { SafeUser } from "@/db/schema";
 import { cn, formatNumber } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ const LINKS = [
   { href: "/admin/showcase", label: "اسلایدشوی نمونه‌کارها", icon: GalleryHorizontalEnd },
   { href: "/admin/customers", label: "مشتریان", icon: Users },
   { href: "/admin/settings", label: "پرداخت و تنظیمات", icon: CreditCard },
+  { href: "/control", label: "مرکز کنترل ایجنت", icon: Bot, external: true as const },
 ];
 
 export function AdminShell({
@@ -44,7 +45,7 @@ export function AdminShell({
   const nav = (
     <nav className="flex flex-1 flex-col gap-1 px-3">
       {LINKS.map((l) => {
-        const active = l.exact ? pathname === l.href : pathname.startsWith(l.href);
+        const active = "external" in l ? false : l.exact ? pathname === l.href : pathname.startsWith(l.href);
         const badge = l.badge === "orders" ? pendingOrders : l.badge === "messages" ? unreadMessages : 0;
         return (
           <Link
@@ -118,7 +119,7 @@ export function AdminShell({
             <button onClick={() => setOpen(true)} className="rounded-full p-2 hover:bg-cream lg:hidden" aria-label="منو">
               <Menu className="size-5" />
             </button>
-            <p className="text-sm font-semibold text-ink-soft">{LINKS.find((l) => (l.exact ? pathname === l.href : pathname.startsWith(l.href)))?.label ?? "مدیریت"}</p>
+            <p className="text-sm font-semibold text-ink-soft">{LINKS.find((l) => "external" in l ? false : l.exact ? pathname === l.href : pathname.startsWith(l.href))?.label ?? "مدیریت"}</p>
           </div>
           <div className="flex items-center gap-2">
             <Link href="/admin/messages" className="relative rounded-full p-2 hover:bg-cream" aria-label="گفتگوها">
