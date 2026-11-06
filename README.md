@@ -141,7 +141,8 @@ RLS برای نقش‌های `anon`/`authenticated` فعال و دسترسی آ�
 | `OPENAI_API_KEY` / `LLM_MODEL` / `LLM_BASE_URL` | اختیاری؛ فعال‌سازی مدل زبانی برای پروپوزال و ترجمه |
 | `CRON_SECRET` | محافظت از `/api/control/agent/cron` (Vercel Cron) |
 | `AGENT_AUTHOR_NAME` | امضای پایانی پروپوزال‌ها |
-| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | اختیاری؛ به‌روزرسانی زنده |
+| `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (یا `NEXT_PUBLIC_SUPABASE_ANON_KEY`) | به‌روزرسانی زنده + پل پروژهٔ Supabase دوم |
+| `SUPABASE_SERVICE_ROLE_KEY` | اختیاری؛ خواندن/نوشتن سروری در پروژهٔ Supabase دوم |
 
 ## اتصال تلگرام (Human-in-the-Loop)
 
@@ -178,7 +179,7 @@ curl -X POST "https://<APP_URL>/api/control/projects" \
 ```
 
 `sourceUrl` یونیک است ⇒ پروژهٔ تکراری ثبت نمی‌شود. پروپوزال خودکار نوشته می‌شود و
-(با `notify`) کارت تایید به تلگرام می‌رود. `GET /api/control/agent/cron?secret=$CRON_SECRET`
+(با `notify`) کارت تایید به تلگرام می‌رود. `GET /api/control/agent/cron` (با `CRON_SECRET`، هدر کرون ورسل یا نشست ادمین)
 همان حلقه را برای پروژه‌های بدون پروپوزال/بدون اطلاع‌رسانی تکمیل می‌کند و در `vercel.json` هر ۳۰ دقیقه اجرا می‌شود.
 
 ## موتور اجرای خودکار (بدون سرویس خارجی)
@@ -206,11 +207,18 @@ create policy "operator can read projects" on projects
 
 بدون این پالیسی، همه‌چیز کار می‌کند و فقط آپدیت زنده غیرفعال می‌ماند.
 
+## راه‌اندازی گام‌به‌گام (برای شروع سریع)
+
+خلاصهٔ کارهای لازم در `docs/CONTROL-CENTER-SETUP.md` آمده است: مایگریشن، ربات تلگرام، اولین پروژه،
+و متغیرهای اختیاری. مسیر پیشنهادی: `README → docs/CONTROL-CENTER-SETUP.md`.
+
 ## دیپلوی روی Vercel
 
 1. متغیرهای بالا را در Project → Settings → Environment Variables اضافه کنید (`DATABASE_URL` پولر ۶۵۴۳).
 2. `npm run build` محلی بدون خطاست (همین حالا تست شده).
-3. بعد از دیپلوی، `APP_URL` را با دامنهٔ نهایی پر و وب‌هوک را از `/control/settings` ثبت کنید.
+3. بعد از دیپلوی، وب‌هوک را از `/control/settings` ثبت کنید (اگر `APP_URL` خالی باشد، دامنهٔ فعلی
+   درخواست استفاده می‌شود؛ برای لینک‌های ثابت تلگرام بهتر است `APP_URL` را هم ست کنید).
+4. کرون روی پلن Hobby فقط روزانه مجاز است؛ برای بازه‌های کوتاه‌تر از n8n/Make با `CRON_SECRET` استفاده کنید.
 
 ## تست سریع محلی
 

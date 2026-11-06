@@ -137,8 +137,10 @@ alter table wallet_settings enable row level security;
 alter table wallet_transactions enable row level security;
 alter table agent_tasks enable row level security;
 
-revoke all on table projects, chats, wallet_settings, wallet_transactions, agent_tasks
-  from anon, authenticated;
+do $$ begin
+  revoke all on table projects, chats, wallet_settings, wallet_transactions, agent_tasks
+    from anon, authenticated;
+exception when undefined_object then null; end $$;
 
 -- ── per-project totals used by the dashboard charts ────────────────────────
 create or replace view project_financials as
@@ -152,4 +154,6 @@ from projects p
 left join wallet_transactions t on t.project_id = p.id
 group by p.id, p.status, p.budget_usdt;
 
-revoke all on project_financials from anon, authenticated;
+do $$ begin
+  revoke all on project_financials from anon, authenticated;
+exception when undefined_object then null; end $$;

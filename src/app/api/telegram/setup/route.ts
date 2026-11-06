@@ -1,4 +1,4 @@
-import { bad, ok, requireOperator } from "@/lib/control/api";
+import { bad, ok, readJson, requireOperator } from "@/lib/control/api";
 import {
   appUrl,
   deleteWebhook,
@@ -10,8 +10,22 @@ import {
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Public base URL of *this* deployment:
+ * APP_URL when set, otherwise derived from the request (so the webhook always
+ * points at the domain the admin is actually using).
+ */
+function baseUrlFrom(req: Request) {
+  const explicit = appUrl();
+  if (explicit) return explicit;
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  if (!host) return "";
+  const proto = req.headers.get("x-forwarded-proto") || (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
 /** Status of the bot binding + the current webhook. */
-export async function GET() {
+export async function GET(req: Request) {
   const guard = await requireOperator();
   if ("response" in guard) return guard.response;
 
@@ -26,7 +40,7 @@ export async function GET() {
   }
 
   const [me, hook] = await Promise.all([getMe(), getWebhookInfo()]);
-  const base = appUrl();
+  const base = baseUrlFrom(req);
   return ok({
     configured: true,
     bot: me.ok ? me.result : null,
@@ -47,22 +61,17 @@ export async function POST(req: Request) {
 
   if (!telegramToken()) return bad("TELEGRAM_BOT_TOKEN تنظیم نشده است.");
 
-  let remove = false;
-  try {
-    const body = (await req.json()) as { remove?: boolean };
-    remove = Boolean(body?.remove);
-  } catch {
-    remove = false;
-  }
+  const body = (await readJson<{ remove?: boolean }>(req)) ?? {};
+  const remove = Boolean(body?.remove);
 
   if (remove) {
     const res = await deleteWebhook();
     return res.ok ? ok({ ok: true, message: "وب‌هوک حذف شد." }) : bad(`حذف وب‌هوک ناموفق بود: ${res.description ?? res.error}`);
   }
 
-  const base = appUrl();
+  const base = baseUrlFrom(req);
   if (!base) {
-    return bad("APP_URL (یا NEXT_PUBLIC_APP_URL) تنظیم نشده است؛ آدرس عمومی این دیپلوی را مشخص کنید.");
+    return bad("آدرس عمومی این دیپلوی مشخص نشد؛ متغیر APP_URL را تنظیم کنید.");
   }
 
   const url = `${base}/api/telegram-webhook`;

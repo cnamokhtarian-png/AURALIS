@@ -14,7 +14,14 @@ type Status = {
   message: string | null;
 };
 
-export function TelegramSettings({ envFlags }: { envFlags: Record<string, boolean> }) {
+export function TelegramSettings({
+  envFlags,
+  compact = false,
+}: {
+  envFlags: Record<string, boolean>;
+  /** compact = only the connection card (used next to the Supabase panel) */
+  compact?: boolean;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [, startTransition] = useTransition();
@@ -66,9 +73,7 @@ export function TelegramSettings({ envFlags }: { envFlags: Record<string, boolea
 
   const webhookOk = Boolean(status?.webhook?.url && status.expectedUrl && status.webhook.url === status.expectedUrl);
 
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-2">
+  const statusPanel = (
         <Panel title="وضعیت ربات تلگرام" subtitle="اتصال Human-in-the-Loop" action={<Bot className="size-4 text-emerald-300" />}>
           {!status ? (
             <p className="py-6 text-center text-[11px] text-[#7d92aa]">در حال بررسی…</p>
@@ -124,7 +129,9 @@ export function TelegramSettings({ envFlags }: { envFlags: Record<string, boolea
             </div>
           )}
         </Panel>
+  );
 
+  const envPanel = (
         <Panel title="متغیرهای محیطی" subtitle="در Vercel → Settings → Environment Variables">
           <ul className="space-y-2">
             {Object.entries({
@@ -158,6 +165,15 @@ export function TelegramSettings({ envFlags }: { envFlags: Record<string, boolea
             کل پنل بدون آن‌ها هم کار می‌کند.
           </p>
         </Panel>
+  );
+
+  if (compact) return statusPanel;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-2">
+        {statusPanel}
+        {envPanel}
       </div>
 
       <Panel title="راه‌اندازی در ۴ قدم" subtitle="از BotFather تا اولین تایید پروپوزال">

@@ -1,26 +1,29 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { projects } from "@/db/schema";
-import { bad, checkSecret, ok } from "@/lib/control/api";
+import { bad, checkSecret, ok, requireOperator } from "@/lib/control/api";
 import { notifyProject, regenerateProposal } from "@/lib/control/automation";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * The agent loop, meant for a Vercel Cron (see vercel.json) or any scheduler:
+ * The agent loop, called by Vercel Cron (see vercel.json — once a day on Hobby,
+ * more often on Pro) or by any external scheduler:
  *
  *  • drafts proposals for jobs that don't have one yet
  *  • pushes jobs that were never delivered to Telegram
  *
- * Auth: `Authorization: Bearer $CRON_SECRET` or `?secret=`. When CRON_SECRET is
- * unset the route refuses to run (it is publicly reachable).
+ * Auth: Vercel's own cron header (`Authorization: Bearer $CRON_SECRET`),
+ * an admin session cookie, or `?secret=`. Note that Hobby-plan crons cannot
+ * carry a secret, so on Hobby the daily run is simply a no-op unless a
+ * dashboard is logged in — use the setup cron below for cross-project work.
  */
 export async function GET(req: Request) {
-  if (!process.env.CRON_SECRET) {
-    return bad("CRON_SECRET تنظیم نشده است؛ اجرای عمومی این مسیر غیرفعال است.", 503);
-  }
-  if (!checkSecret(req)) return bad("دسترسی غیرمجاز.", 401);
+  const isVercelCron = Boolean(req.headers.get("x-vercel-cron"));
+  const guard = await requireOperator();
+  const allowed = ("response" in guard) || isVercelCron || (process.env.CRON_SECRET ? checkSecret(req) : false);
+  if (!allowed) return bad("دسترسی غیرمجاز.", 401);
 
   const missingProposal = await db
     .select()

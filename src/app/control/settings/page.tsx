@@ -1,11 +1,14 @@
 import { Panel } from "@/components/control/ui";
 import { TelegramSettings } from "@/components/control/telegram-settings";
 import { DemoSeedButton } from "@/components/control/demo-seed-button";
+import { SupabasePanel } from "@/components/control/supabase-panel";
+import { remoteStatus } from "@/lib/control/supabase";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "اتصال تلگرام" };
 
-export default function ControlSettingsPage() {
+export default async function ControlSettingsPage() {
+  const remote = await remoteStatus();
   const envFlags = {
     telegramToken: Boolean(process.env.TELEGRAM_BOT_TOKEN),
     telegramChatId: Boolean(process.env.TELEGRAM_CHAT_ID),
@@ -13,7 +16,11 @@ export default function ControlSettingsPage() {
     appUrl: Boolean(process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL),
     openai: Boolean(process.env.OPENAI_API_KEY),
     cron: Boolean(process.env.CRON_SECRET),
-    supabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+    supabaseUrl: Boolean(
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
+    ),
+    supabaseService: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
   };
 
   return (
@@ -25,7 +32,10 @@ export default function ControlSettingsPage() {
         </p>
       </header>
 
-      <TelegramSettings envFlags={envFlags} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <TelegramSettings envFlags={envFlags} compact />
+        <SupabasePanel initial={remote} />
+      </div>
 
       <Panel title="داده نمونه" subtitle="برای تست سریع داشبورد در محیط لوکال">
         <div className="flex flex-wrap items-center justify-between gap-3">
