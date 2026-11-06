@@ -17,10 +17,12 @@ export const dynamic = "force-dynamic";
  */
 function baseUrlFrom(req: Request) {
   const explicit = appUrl();
-  if (explicit) return explicit;
-  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
-  if (!host) return "";
-  const proto = req.headers.get("x-forwarded-proto") || (host.startsWith("localhost") ? "http" : "https");
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+  const isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(host);
+  // Prefer APP_URL, but never let a stale localhost value win on a real deploy.
+  if (explicit && !(/localhost|127\.0\.0\.1/.test(explicit) && host && !isLocalHost)) return explicit;
+  if (!host) return explicit;
+  const proto = req.headers.get("x-forwarded-proto") || (isLocalHost ? "http" : "https");
   return `${proto}://${host}`;
 }
 
