@@ -76,6 +76,24 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Newest */}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+        <div className="mb-8 flex items-end justify-between">
+          <div>
+            <p className="text-xs tracking-[0.3em] text-gold-dark">NEW ARRIVALS</p>
+            <h2 className="mt-1 text-2xl font-bold">تازه‌های آتلیه</h2>
+          </div>
+          <Link href="/products?sort=newest" className="text-sm text-gold-dark hover:underline">
+            مشاهده همه
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {newest.map((p) => (
+            <ProductCard key={p.id} product={p} categoryName={p.category?.name} />
+          ))}
+        </div>
+      </section>
+
       {/* Categories */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
         <div className="mb-8 flex items-end justify-between">
@@ -185,24 +203,6 @@ export default async function HomePage() {
               </LinkButton>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Newest */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-        <div className="mb-8 flex items-end justify-between">
-          <div>
-            <p className="text-xs tracking-[0.3em] text-gold-dark">NEW ARRIVALS</p>
-            <h2 className="mt-1 text-2xl font-bold">تازه‌های آتلیه</h2>
-          </div>
-          <Link href="/products?sort=newest" className="text-sm text-gold-dark hover:underline">
-            مشاهده همه
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {newest.map((p) => (
-            <ProductCard key={p.id} product={p} categoryName={p.category?.name} />
-          ))}
         </div>
       </section>
 
