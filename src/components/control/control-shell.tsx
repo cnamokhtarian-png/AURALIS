@@ -8,12 +8,17 @@ import {
   BadgeDollarSign,
   Bot,
   ChevronLeft,
+  Inbox,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   Menu,
   MessageSquare,
+  Search,
   Send,
+  SlidersHorizontal,
   Store,
+  Users,
   Wallet,
   X,
 } from "lucide-react";
@@ -21,6 +26,12 @@ import { cn } from "@/lib/utils";
 
 const LINKS = [
   { href: "/control", label: "نمای کلی", icon: LayoutDashboard, exact: true },
+  { href: "/control/store", label: "ایجنت فروشگاه", icon: Store, exact: true, group: "store" },
+  { href: "/control/store/leads", label: "سرنخ‌ها و CRM", icon: Users, group: "store" },
+  { href: "/control/store/inbox", label: "صندوق تایید", icon: Inbox, group: "store" },
+  { href: "/control/store/marketing", label: "بازاریابی و محتوا", icon: Megaphone, group: "store" },
+  { href: "/control/store/research", label: "تحقیقات بازار", icon: Search, group: "store" },
+  { href: "/control/store/settings", label: "تنظیمات ایجنت فروشگاه", icon: SlidersHorizontal, group: "store" },
   { href: "/control/projects", label: "پروژه‌ها و پیشنهادها", icon: Send },
   { href: "/control/chats", label: "گفتگو با کارفرما", icon: MessageSquare },
   { href: "/control/tools", label: "ابزارهای خودکار", icon: Bot },
@@ -48,12 +59,16 @@ export function ControlShell({
   }
 
   const nav = (
-    <nav className="flex flex-1 flex-col gap-1 px-3">
-      {LINKS.map((l) => {
+    <nav className="cc-scroll flex flex-1 flex-col gap-1 overflow-y-auto px-3 pb-3">
+      {LINKS.map((l, index) => {
         const active = l.exact ? pathname === l.href : pathname.startsWith(l.href);
+        const showGroup = Boolean(l.group) && !LINKS[index - 1]?.group;
         return (
+          <div key={l.href}>
+          {showGroup && (
+            <p className="mt-3 mb-1 px-3 text-[9px] font-semibold tracking-widest text-[#42566f]">STORE AGENT</p>
+          )}
           <Link
-            key={l.href}
             href={l.href}
             onClick={() => setOpen(false)}
             className={cn(
@@ -67,6 +82,7 @@ export function ControlShell({
             <span className="flex-1">{l.label}</span>
             {active && <ChevronLeft className="size-3.5 opacity-60" />}
           </Link>
+          </div>
         );
       })}
     </nav>

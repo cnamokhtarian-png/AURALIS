@@ -2,7 +2,9 @@ import Link from "next/link";
 import { BadgeCheck, CreditCard, FileCheck2, MessageCircle, PackageCheck, Truck } from "lucide-react";
 
 import { PaymentInstructions } from "@/components/order-ui";
+import { LeadMagnetForm } from "@/components/store/lead-magnet-form";
 import { LinkButton } from "@/components/ui";
+import { getAgentSettings } from "@/lib/store-agent/settings";
 import { getSettings } from "@/lib/server";
 import { formatPrice } from "@/lib/utils";
 
@@ -11,6 +13,16 @@ export const metadata = { title: "راهنمای خرید" };
 
 export default async function GuidePage() {
   const s = await getSettings();
+  let magnetTitle = "راهنمای رایگان ست کردن کیف مرواریدی";
+  let magnetUrl = "";
+  try {
+    const agent = await getAgentSettings();
+    if (agent.leadMagnetTitle.trim()) magnetTitle = agent.leadMagnetTitle.trim();
+    const raw = agent.leadMagnetUrl.trim();
+    if (raw.startsWith("https://") || raw.startsWith("http://") || raw.startsWith("/")) magnetUrl = raw;
+  } catch {
+    // The store agent tables are optional; the storefront must never break because of them.
+  }
   const steps = [
     { icon: <PackageCheck className="size-5" />, title: "۱. انتخاب محصول و ثبت سفارش", text: "محصولات را به سبد اضافه کنید، وارد حساب کاربری شوید و اطلاعات گیرنده را ثبت نمایید. پس از ثبت، شماره سفارش و مبلغ دقیق نمایش داده می‌شود." },
     { icon: <CreditCard className="size-5" />, title: "۲. واریز کارت‌به‌کارت", text: "مبلغ نهایی سفارش را به شماره کارت زیر واریز کنید. موجودی محصول تا ثبت رسید برای شما رزرو می‌ماند." },
@@ -54,6 +66,10 @@ export default async function GuidePage() {
             </ul>
           </div>
         </div>
+      </div>
+
+      <div className="mt-12">
+        <LeadMagnetForm title={magnetTitle} magnetUrl={magnetUrl} />
       </div>
 
       <div className="mt-14 rounded-3xl bg-cream/70 p-8 text-center">

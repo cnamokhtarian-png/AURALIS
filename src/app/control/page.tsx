@@ -82,6 +82,9 @@ export default async function ControlOverviewPage() {
               <Link href="/control/tools" className="cc-btn cc-btn-ghost">
                 <Bot className="size-4" /> اجرای ماموریت
               </Link>
+              <Link href="/control/store" className="cc-btn cc-btn-ghost">
+                <Bot className="size-4" /> ایجنت فروشگاه
+              </Link>
               <Link href="/control/chats" className="cc-btn cc-btn-ghost">
                 <MessageSquare className="size-4" /> پاسخ‌های منتظر تایید
                 {stats.pendingDrafts > 0 && (

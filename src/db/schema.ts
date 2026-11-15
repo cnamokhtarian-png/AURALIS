@@ -46,6 +46,64 @@ export const agentTaskStatusEnum = pgEnum("agent_task_status", [
   "failed",
 ]);
 
+// ---------- Store Agent (sales / marketing / research) ----------
+export const leadStatusEnum = pgEnum("lead_status", [
+  "new",
+  "qualified",
+  "contacted",
+  "replied",
+  "negotiating",
+  "won",
+  "lost",
+  "unsubscribed",
+]);
+export const leadSourceEnum = pgEnum("lead_source", [
+  "telegram",
+  "instagram",
+  "eitaa",
+  "rubika",
+  "bale",
+  "website",
+  "hashtag",
+  "import",
+  "manual",
+  "referral",
+]);
+export const leadGradeEnum = pgEnum("lead_grade", ["hot", "warm", "cold"]);
+export const storeMessageDirectionEnum = pgEnum("store_message_direction", [
+  "inbound",
+  "outbound",
+  "note",
+]);
+export const storeMessageStatusEnum = pgEnum("store_message_status", [
+  "received",
+  "draft",
+  "queued",
+  "sent",
+  "failed",
+  "discarded",
+]);
+export const campaignStatusEnum = pgEnum("campaign_status", ["draft", "active", "paused", "done"]);
+export const storePostStatusEnum = pgEnum("store_post_status", [
+  "draft",
+  "queued",
+  "sent",
+  "failed",
+  "archived",
+]);
+export const researchKindEnum = pgEnum("research_kind", ["competitor", "pricing", "trend", "custom"]);
+export const storeAgentKindEnum = pgEnum("store_agent_kind", [
+  "research",
+  "marketing",
+  "sales",
+  "orchestrator",
+]);
+export const storeAgentRunStatusEnum = pgEnum("store_agent_run_status", [
+  "running",
+  "done",
+  "failed",
+]);
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -307,6 +365,233 @@ export const appSettings = pgTable("app_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ---------- Store Agent tables ----------
+
+/**
+ * One row per outbound channel. `mode` decides what the agent is allowed to do:
+ *  • api     — a bot token exists (Telegram / Bale compatible API): real sending
+ *  • manual  — no public send API for this account type: the agent prepares the
+ *              message and the operator taps send / copies it (Instagram, Eitaa,
+ *              Rubika, direct messages). Never scraped, never mass-DM'd.
+ *  • webhook — inbound only (website form, landing pages).
+ */
+export const storeChannels = pgTable("store_channels", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  label: text("label").notNull(),
+  mode: text("mode").notNull().default("manual"),
+  apiBase: text("api_base"),
+  /** Bot token, encrypted at rest with the same AES-256-GCM box as app_settings. */
+  token: text("token"),
+  handle: text("handle"),
+  enabled: boolean("enabled").notNull().default(false),
+  note: text("note"),
+  status: text("status").notNull().default("unverified"),
+  lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Single-row configuration of the store agent (brand voice, offer, guardrails). */
+export const storeAgentSettings = pgTable("store_agent_settings", {
+  id: serial("id").primaryKey(),
+  brandName: text("brand_name").notNull().default("AURALIS"),
+  brandVoice: text("brand_voice").notNull().default(""),
+  offerText: text("offer_text").notNull().default(""),
+  leadMagnetTitle: text("lead_magnet_title").notNull().default(""),
+  leadMagnetUrl: text("lead_magnet_url").notNull().default(""),
+  storeUrl: text("store_url").notNull().default(""),
+  supportPhone: text("support_phone").notNull().default(""),
+  targetAudience: text("target_audience").notNull().default(""),
+  maxDiscountPercent: integer("max_discount_percent").notNull().default(10),
+  dailySendCap: integer("daily_send_cap").notNull().default(30),
+  minGapMinutes: integer("min_gap_minutes").notNull().default(7),
+  maxGapMinutes: integer("max_gap_minutes").notNull().default(18),
+  quietStartHour: integer("quiet_start_hour").notNull().default(22),
+  quietEndHour: integer("quiet_end_hour").notNull().default(8),
+  timezone: text("timezone").notNull().default("Asia/Tehran"),
+  /** Draft every reply with AI but wait for the operator before sending. */
+  requireApproval: boolean("require_approval").notNull().default(true),
+  /** Reply automatically with the lead magnet when somebody new says hi. */
+  autoWelcome: boolean("auto_welcome").notNull().default(true),
+  followUpDays: integer("follow_up_days").array().notNull().default([2, 5, 10]),
+  researchCadence: text("research_cadence").notNull().default("weekly"),
+  notifyTelegram: boolean("notify_telegram").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** CRM record for a potential customer captured from any channel. */
+export const leads = pgTable(
+  "leads",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull().default(""),
+    /** @username / phone / whatever identifies the person on the channel. */
+    handle: text("handle"),
+    /** Channel-native user id (Telegram chat id, Bale chat id, form id…). */
+    externalId: text("external_id"),
+    channel: text("channel").notNull().default("manual"),
+    source: leadSourceEnum("source").notNull().default("manual"),
+    sourceUrl: text("source_url"),
+    interest: text("interest"),
+    need: text("need"),
+    phone: text("phone"),
+    email: text("email"),
+    city: text("city"),
+    /** Explicit opt-in (the person asked for the offer / wrote first). */
+    consent: boolean("consent").notNull().default(false),
+    score: integer("score").notNull().default(0),
+    grade: leadGradeEnum("grade").notNull().default("cold"),
+    status: leadStatusEnum("status").notNull().default("new"),
+    estimatedValue: integer("estimated_value").notNull().default(0),
+    tags: text("tags").array().notNull().default([]),
+    notes: text("notes"),
+    lastInboundAt: timestamp("last_inbound_at", { withTimezone: true }),
+    lastContactAt: timestamp("last_contact_at", { withTimezone: true }),
+    nextFollowUpAt: timestamp("next_follow_up_at", { withTimezone: true }),
+    followUpStep: integer("follow_up_step").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("leads_channel_external_key").on(table.channel, table.externalId),
+    uniqueIndex("leads_channel_handle_key").on(table.channel, table.handle),
+  ],
+);
+
+/** Audit trail / timeline shown on the lead page. */
+export const leadEvents = pgTable("lead_events", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id")
+    .notNull()
+    .references(() => leads.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  detail: text("detail"),
+  meta: jsonb("meta").$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Every inbound / outbound / drafted message of the sales agent. */
+export const storeMessages = pgTable("store_messages", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id")
+    .notNull()
+    .references(() => leads.id, { onDelete: "cascade" }),
+  channel: text("channel").notNull(),
+  direction: storeMessageDirectionEnum("direction").notNull(),
+  status: storeMessageStatusEnum("status").notNull().default("draft"),
+  body: text("body").notNull(),
+  aiGenerated: boolean("ai_generated").notNull().default(false),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  externalId: text("external_id"),
+  error: text("error"),
+  /** Marketing post that produced this message, or any extra payload. */
+  meta: jsonb("meta").$type<Record<string, unknown>>().notNull().default({}),
+  telegramNotifyMessageId: bigint("telegram_notify_message_id", { mode: "number" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** A marketing push: one goal, one offer, one or more channels. */
+export const campaigns = pgTable("campaigns", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  goal: text("goal"),
+  offer: text("offer"),
+  audience: text("audience"),
+  channels: text("channels").array().notNull().default([]),
+  status: campaignStatusEnum("status").notNull().default("draft"),
+  startAt: timestamp("start_at", { withTimezone: true }),
+  endAt: timestamp("end_at", { withTimezone: true }),
+  metrics: jsonb("metrics").$type<Record<string, number>>().notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Channel-specific copy generated by the marketing agent. */
+export const marketingPosts = pgTable("marketing_posts", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  channel: text("channel").notNull(),
+  format: text("format").notNull().default("post"),
+  title: text("title").notNull().default(""),
+  body: text("body").notNull(),
+  hashtags: text("hashtags").array().notNull().default([]),
+  imagePrompt: text("image_prompt"),
+  status: storePostStatusEnum("status").notNull().default("draft"),
+  scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  externalId: text("external_id"),
+  permalink: text("permalink"),
+  error: text("error"),
+  metrics: jsonb("metrics").$type<Record<string, number>>().notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Competitor watch-list used by the market-research module. */
+export const competitors = pgTable("competitors", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  handle: text("handle"),
+  url: text("url"),
+  channel: text("channel"),
+  priceMin: integer("price_min"),
+  priceMax: integer("price_max"),
+  rating: integer("rating"),
+  strengths: text("strengths").array().notNull().default([]),
+  weaknesses: text("weaknesses").array().notNull().default([]),
+  /** Pasted customer reviews / comments, the raw material of the analysis. */
+  reviewNotes: text("review_notes"),
+  lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Keyword / topic signals handed from research to the marketing agent. */
+export const trendSignals = pgTable("trend_signals", {
+  id: serial("id").primaryKey(),
+  keyword: text("keyword").notNull(),
+  channel: text("channel"),
+  score: integer("score").notNull().default(50),
+  volumeHint: text("volume_hint"),
+  source: text("source").notNull().default("manual"),
+  note: text("note"),
+  capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Structured output of the market-research agent. */
+export const researchReports = pgTable("research_reports", {
+  id: serial("id").primaryKey(),
+  kind: researchKindEnum("kind").notNull().default("custom"),
+  title: text("title").notNull(),
+  summary: text("summary").notNull().default(""),
+  insights: jsonb("insights")
+    .$type<Array<{ title: string; detail: string; action?: string; impact?: string }>>()
+    .notNull()
+    .default([]),
+  pricing: jsonb("pricing").$type<Record<string, unknown>>().notNull().default({}),
+  weaknesses: text("weaknesses").array().notNull().default([]),
+  trends: text("trends").array().notNull().default([]),
+  sources: jsonb("sources").$type<Array<{ title: string; url?: string }>>().notNull().default([]),
+  engine: text("engine").notNull().default("template"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Run log of the three agents + the orchestrator (shown on the dashboard). */
+export const storeAgentRuns = pgTable("store_agent_runs", {
+  id: serial("id").primaryKey(),
+  kind: storeAgentKindEnum("kind").notNull(),
+  status: storeAgentRunStatusEnum("status").notNull().default("running"),
+  trigger: text("trigger").notNull().default("manual"),
+  stats: jsonb("stats").$type<Record<string, unknown>>().notNull().default({}),
+  error: text("error"),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+});
+
 // ---------- Relations ----------
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -365,6 +650,23 @@ export const agentTasksRelations = relations(agentTasks, ({ one }) => ({
   project: one(projects, { fields: [agentTasks.projectId], references: [projects.id] }),
 }));
 
+export const leadsRelations = relations(leads, ({ many }) => ({
+  messages: many(storeMessages),
+  events: many(leadEvents),
+}));
+
+export const storeMessagesRelations = relations(storeMessages, ({ one }) => ({
+  lead: one(leads, { fields: [storeMessages.leadId], references: [leads.id] }),
+}));
+
+export const leadEventsRelations = relations(leadEvents, ({ one }) => ({
+  lead: one(leads, { fields: [leadEvents.leadId], references: [leads.id] }),
+}));
+
+export const marketingPostsRelations = relations(marketingPosts, ({ one }) => ({
+  campaign: one(campaigns, { fields: [marketingPosts.campaignId], references: [campaigns.id] }),
+}));
+
 // ---------- Types ----------
 
 export type User = typeof users.$inferSelect;
@@ -390,3 +692,25 @@ export type AgentTask = typeof agentTasks.$inferSelect;
 export type AgentTaskKind = (typeof agentTaskKindEnum.enumValues)[number];
 export type AgentTaskStatus = (typeof agentTaskStatusEnum.enumValues)[number];
 export type AppSetting = typeof appSettings.$inferSelect;
+
+export type StoreChannel = typeof storeChannels.$inferSelect;
+export type StoreAgentSettings = typeof storeAgentSettings.$inferSelect;
+export type Lead = typeof leads.$inferSelect;
+export type NewLead = typeof leads.$inferInsert;
+export type LeadStatus = (typeof leadStatusEnum.enumValues)[number];
+export type LeadSource = (typeof leadSourceEnum.enumValues)[number];
+export type LeadGrade = (typeof leadGradeEnum.enumValues)[number];
+export type LeadEvent = typeof leadEvents.$inferSelect;
+export type StoreMessage = typeof storeMessages.$inferSelect;
+export type StoreMessageDirection = (typeof storeMessageDirectionEnum.enumValues)[number];
+export type StoreMessageStatus = (typeof storeMessageStatusEnum.enumValues)[number];
+export type Campaign = typeof campaigns.$inferSelect;
+export type CampaignStatus = (typeof campaignStatusEnum.enumValues)[number];
+export type MarketingPost = typeof marketingPosts.$inferSelect;
+export type StorePostStatus = (typeof storePostStatusEnum.enumValues)[number];
+export type Competitor = typeof competitors.$inferSelect;
+export type TrendSignal = typeof trendSignals.$inferSelect;
+export type ResearchReport = typeof researchReports.$inferSelect;
+export type ResearchKind = (typeof researchKindEnum.enumValues)[number];
+export type StoreAgentRun = typeof storeAgentRuns.$inferSelect;
+export type StoreAgentKind = (typeof storeAgentKindEnum.enumValues)[number];
