@@ -32,6 +32,10 @@ export const SETTING_KEYS = {
   llmApiKey: "OPENAI_API_KEY",
   llmModel: "LLM_MODEL",
   agentAuthor: "AGENT_AUTHOR_NAME",
+  // ── Store Agent (sales / marketing / market research) ──
+  geminiApiKey: "GEMINI_API_KEY",
+  geminiModel: "GEMINI_MODEL",
+  storeWebhookSecret: "STORE_AGENT_WEBHOOK_SECRET",
 } as const;
 
 export type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS];
@@ -43,6 +47,8 @@ const SECRET_KEYS = new Set<string>([
   SETTING_KEYS.supabasePublishableKey,
   SETTING_KEYS.supabaseServiceKey,
   SETTING_KEYS.llmApiKey,
+  SETTING_KEYS.geminiApiKey,
+  SETTING_KEYS.storeWebhookSecret,
 ]);
 
 const LEGACY_ALIASES: Record<string, string> = {
@@ -188,6 +194,9 @@ export async function describeSettings(): Promise<Record<string, SettingState>> 
     [SETTING_KEYS.llmApiKey]: "کلید مدل زبانی",
     [SETTING_KEYS.llmModel]: "مدل زبانی",
     [SETTING_KEYS.agentAuthor]: "نام نویسنده پیشنهاد",
+    [SETTING_KEYS.geminiApiKey]: "کلید Gemini API (ایجنت فروشگاه)",
+    [SETTING_KEYS.geminiModel]: "مدل Gemini",
+    [SETTING_KEYS.storeWebhookSecret]: "کلید مخفی وب‌هوک ایجنت فروشگاه",
   };
 
   const out: Record<string, SettingState> = {};

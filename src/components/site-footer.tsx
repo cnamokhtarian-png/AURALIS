@@ -46,6 +46,7 @@ export function SiteFooter({
             <ul className="space-y-3 text-sm text-pearl/70">
               <li><Link className="hover:text-gold" href="/products">همه محصولات</Link></li>
               <li><Link className="hover:text-gold" href="/guide">راهنمای خرید و پرداخت</Link></li>
+              <li><Link className="hover:text-gold" href="/guide#magnet">دریافت راهنمای رایگان</Link></li>
               <li><Link className="hover:text-gold" href="/about">درباره آورالیس</Link></li>
               <li><Link className="hover:text-gold" href="/account/messages">گفتگو با پشتیبانی</Link></li>
               <li><Link className="hover:text-gold" href="/account/orders">پیگیری سفارش</Link></li>

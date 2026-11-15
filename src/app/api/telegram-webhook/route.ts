@@ -19,9 +19,11 @@ import {
   regenerateProposal,
 } from "@/lib/control/automation";
 import { db } from "@/db";
-import { projects } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { projects, storeMessages } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 import { formatUsdt } from "@/lib/control/data";
+import { getLead } from "@/lib/store-agent/leads";
+import { discardMessage, sendMessageById, updateDraftBody } from "@/lib/store-agent/messages";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -61,10 +63,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Ignore strangers if a chat id is configured.
     const owner = (await telegramCredentials()).chatId;
     const incomingChat = update.message?.chat.id ?? update.callback_query?.message?.chat.id;
+
+    // A stranger is a *customer*: feed the Store Agent instead of ignoring them.
     if (owner && incomingChat && String(incomingChat) !== owner) {
+      if (update.message) await handleCustomerMessage(update.message);
       return ack();
     }
 
@@ -87,6 +91,13 @@ export async function POST(req: Request) {
 
 async function handleCallback(query: NonNullable<TelegramUpdate["callback_query"]>) {
   const data = query.data ?? "";
+
+  // ── Store Agent draft approval ──────────────────────────────────────────
+  if (/^s(ok|no|view):/.test(data)) {
+    await handleStoreCallback(query);
+    return;
+  }
+
   const [action, rawId] = data.split(":");
   const projectId = Number(rawId);
   const messageId = query.message?.message_id;
@@ -251,7 +262,140 @@ async function handleMessage(message: NonNullable<TelegramUpdate["message"]>) {
     return;
   }
 
+  // Owner replied to a Store Agent draft card?
+  if (await editStoreDraftFromTelegram(text, message.reply_to_message?.message_id)) return;
+
   // Threaded reply → operator answering a client
   const result = await replyFromTelegram(text, message.reply_to_message?.message_id);
   await sendMessage(result.ok ? `✅ ${result.message}` : `⚠️ ${result.message}`);
+}
+
+
+// ── Store Agent (customer-facing bot behaviour) ────────────────────────────
+
+async function handleCustomerMessage(message: NonNullable<TelegramUpdate["message"]>) {
+  const text = (message.text ?? "").trim();
+  if (!text) return;
+  try {
+    const { ingestInbound } = await import("@/lib/store-agent/messages");
+    await ingestInbound({
+      channel: "telegram",
+      externalId: String(message.chat.id),
+      name: message.from?.first_name ?? message.chat.title ?? "",
+      handle: message.from?.username,
+      text,
+      source: "telegram",
+    });
+  } catch (err) {
+    console.error("[telegram-webhook] store agent inbound failed", err);
+  }
+}
+
+async function handleStoreCallback(query: NonNullable<TelegramUpdate["callback_query"]>) {
+  const data = query.data ?? "";
+  const [action, rawId] = data.split(":");
+  const id = Number(rawId);
+  const notificationId = query.message?.message_id;
+
+  if (!Number.isInteger(id) || id <= 0) {
+    await answerCallbackQuery(query.id, "درخواست نامعتبر است.");
+    return;
+  }
+
+  const rows = await db.select().from(storeMessages).where(eq(storeMessages.id, id)).limit(1);
+  const message = rows[0];
+  if (!message) {
+    await answerCallbackQuery(query.id, "پیام پیدا نشد.", true);
+    return;
+  }
+  const lead = await getLead(message.leadId);
+
+  if (action === "sno") {
+    await discardMessage(id);
+    await answerCallbackQuery(query.id, "❌ پیش‌نویس حذف شد");
+    if (notificationId) {
+      await editMessageText(notificationId, "❌ <b>پیش‌نویس حذف شد</b>\nاین پیام برای مشتری ارسال نشد.");
+    }
+    return;
+  }
+
+  if (action === "sview") {
+    const base = (await telegramCredentials()).chatId ? process.env.APP_URL ?? "" : "";
+    const text = [
+      `👤 <b>${lead?.name || lead?.handle || "مشتری"}</b>`,
+      `📡 کانال: ${message.channel}`,
+      `📊 امتیاز: ${lead?.score ?? 0}/100`,
+      lead?.need ? `📝 نیاز: ${lead.need.slice(0, 400)}` : "",
+      "",
+      "آخرین پیام‌ها از داشبورد قابل مشاهده و ویرایش هستند.",
+      base ? `${base}/control/store/leads/${message.leadId}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    await answerCallbackQuery(query.id, "جزئیات ارسال شد");
+    await sendMessage(text);
+    return;
+  }
+
+  // sok → approve & send (respects rate limits, consent, opt-out)
+  const outcome = await sendMessageById(id);
+  if (outcome.status === "sent") {
+    await answerCallbackQuery(query.id, "✅ ارسال شد");
+    if (notificationId) {
+      await editMessageText(
+        notificationId,
+        [
+          "✅ <b>تایید و ارسال شد</b>",
+          `👤 ${lead?.name || lead?.handle || "مشتری"} · ${message.channel}`,
+          "",
+          message.body.slice(0, 900),
+        ].join("\n"),
+      );
+    }
+    return;
+  }
+  if (outcome.status === "queued") {
+    const when = outcome.scheduledFor ? new Date(outcome.scheduledFor).toLocaleString("fa-IR") : "بعداً";
+    await answerCallbackQuery(query.id, "🕒 زمان‌بندی شد");
+    if (notificationId) {
+      await editMessageText(notificationId, `🕒 <b>در صف ارسال</b>\nبه دلیل محدودیت ضد‌بلاک، ${when} ارسال می‌شود.`);
+    }
+    return;
+  }
+  if (outcome.status === "manual") {
+    await answerCallbackQuery(query.id, "📋 کپی و ارسال دستی لازم است");
+    if (notificationId) {
+      await editMessageText(
+        notificationId,
+        [
+          "📋 <b>ارسال دستی</b>",
+          "این کانال API ارسال ندارد. متن را از داشبورد کپی و در حساب رسمی بفرستید، بعد «ارسال شد» را بزنید.",
+          "",
+          message.body.slice(0, 900),
+        ].join("\n"),
+      );
+    }
+    return;
+  }
+  await answerCallbackQuery(query.id, `⚠️ ${outcome.error ?? "ارسال نشد"}`, true);
+}
+
+/** Owner replied to a Store Agent draft card → the reply becomes the new text. */
+async function editStoreDraftFromTelegram(text: string, replyToMessageId?: number) {
+  if (!replyToMessageId) return false;
+  const rows = await db
+    .select()
+    .from(storeMessages)
+    .where(
+      and(
+        eq(storeMessages.telegramNotifyMessageId, replyToMessageId),
+        eq(storeMessages.status, "draft"),
+      ),
+    )
+    .limit(1);
+  const draft = rows[0];
+  if (!draft) return false;
+  await updateDraftBody(draft.id, text);
+  await sendMessage("✍️ متن پیش‌نویس به‌روزرسانی شد. با دکمه «✅ تایید و ارسال» آن را بفرستید.");
+  return true;
 }

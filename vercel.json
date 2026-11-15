@@ -4,6 +4,10 @@
     {
       "path": "/api/control/agent/cron",
       "schedule": "17 3 * * *"
+    },
+    {
+      "path": "/api/control/store/agent/cron",
+      "schedule": "23 6 * * *"
     }
   ]
 }
