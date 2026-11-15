@@ -2,7 +2,7 @@
  * Central AI helper for the Store Agent.
  *
  * Free-first: Google AI Studio's Gemini free tier is the default brain
- * (`gemini-2.0-flash`). When no Gemini key is configured the helper falls back
+ * (`gemini-flash-lite-latest`). When no Gemini key is configured the helper falls back
  * to any OpenAI-compatible endpoint already configured for the Control Center
  * (`OPENAI_API_KEY` / `LLM_BASE_URL`), and finally returns `null` so every
  * caller can degrade to its deterministic template engine.
@@ -15,7 +15,7 @@ import { llmComplete } from "@/lib/agent/llm";
 import { loadSettings, SETTING_KEYS } from "@/lib/control/settings";
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const DEFAULT_MODEL = "gemini-2.0-flash";
+const DEFAULT_MODEL = "gemini-flash-lite-latest";
 
 export type AiProvider = "gemini" | "openai" | "template";
 
