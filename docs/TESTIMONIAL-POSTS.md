@@ -66,6 +66,19 @@
 #رضایت_مشتری #کیف_مجلسی #Auralis
 ```
 
+## وضعیت انتشار
+
+پست‌های منتشرشده در کانال (نسخهٔ بازسازی‌شده با متن خوانا):
+
+| پیام | فایل |
+| --- | --- |
+| `https://t.me/Auralis_Pearl/23` | `01-black-bag.png` |
+| `https://t.me/Auralis_Pearl/24` | `02-ring-box.png` |
+| `https://t.me/Auralis_Pearl/25` | `03-pastel-bag.png` |
+| `https://t.me/Auralis_Pearl/26` | `04-green-bag.png` |
+
+پست‌های قبلی (۱۹ تا ۲۲) که متن‌شان ناخوانا بود حذف شدند.
+
 ## بازسازی تصاویر
 
 تصاویر با `tools/social-shots/` ساخته می‌شوند (متن فارسی با HarfBuzz شکل می‌گیرد و
