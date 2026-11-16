@@ -45,7 +45,7 @@ SPECS = {
         initial="ز", avatar="#7c8fd6", date="امروز",
         messages=[
             dict(kind="photo", side="in", photo="pastel", seed=33, time="۱۰:۳۲", tail=False),
-            dict(kind="text", side="in", text="سلام کیف رسید، رنگ‌هاش خیلی نازه", time="۱۰:۳۳", tail=False),
+            dict(kind="text", side="in", text="سلام، کیف رسید. رنگ‌هاش خیلی نازه", time="۱۰:۳۳", tail=False),
             dict(kind="text", side="in", text="از نزدیک قشنگ‌تر از عکسه", time="۱۰:۳۴", tail=True),
             dict(kind="text", side="out", text="ممنون زهرا جان، خوشحالم که راضی بودی", time="۱۰:۳۶",
                  label="ویرایش شده"),
