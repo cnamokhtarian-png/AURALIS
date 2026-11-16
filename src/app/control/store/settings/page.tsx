@@ -25,6 +25,7 @@ export default async function StoreSettingsPage() {
     leadMagnetUrl: settings.leadMagnetUrl,
     storeUrl: settings.storeUrl,
     supportPhone: settings.supportPhone,
+    adminPhone: settings.adminPhone,
     targetAudience: settings.targetAudience,
     maxDiscountPercent: settings.maxDiscountPercent,
     dailySendCap: settings.dailySendCap,

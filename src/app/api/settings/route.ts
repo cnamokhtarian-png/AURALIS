@@ -27,6 +27,7 @@ export async function PUT(req: Request) {
     freeShippingThreshold?: number;
     announcement?: string;
     supportPhone?: string;
+    adminPhone?: string;
     instagram?: string;
     address?: string;
     heroImage?: string;
@@ -52,7 +53,8 @@ export async function PUT(req: Request) {
     shippingFee: Math.max(0, Math.round(Number(body.shippingFee) || 0)),
     freeShippingThreshold: Math.max(0, Math.round(Number(body.freeShippingThreshold) || 0)),
     announcement: body.announcement?.trim() || null,
-    supportPhone: body.supportPhone ? toEnglishDigits(body.supportPhone.trim()) : null,
+    supportPhone: body.supportPhone ? toEnglishDigits(body.supportPhone.trim()).replace(/\D/g, "") : null,
+    adminPhone: body.adminPhone ? toEnglishDigits(body.adminPhone.trim()).replace(/\D/g, "") : null,
     instagram: body.instagram?.trim().replace(/^@/, "") || null,
     address: body.address?.trim() || null,
     updatedAt: new Date(),

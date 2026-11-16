@@ -22,6 +22,7 @@ export function SettingsForm({ settings }: { settings: StoreSettings }) {
     freeShippingThreshold: String(settings.freeShippingThreshold),
     announcement: settings.announcement ?? "",
     supportPhone: settings.supportPhone ?? "",
+    adminPhone: settings.adminPhone ?? "",
     instagram: settings.instagram ?? "",
     address: settings.address ?? "",
     heroImage: settings.heroImage ?? "",
@@ -94,8 +95,11 @@ export function SettingsForm({ settings }: { settings: StoreSettings }) {
             <Field label="نوار اطلاع‌رسانی بالای سایت" className="sm:col-span-2" hint="خالی بگذارید تا نمایش داده نشود">
               <Input value={form.announcement} onChange={(e) => set("announcement", e.target.value)} />
             </Field>
-            <Field label="شماره پشتیبانی">
-              <Input value={form.supportPhone} onChange={(e) => set("supportPhone", e.target.value)} className="ltr text-right" />
+            <Field label="شماره تماس سازنده (اصلی)" hint="همین شماره در فوتر سایت و پست کانال نمایش داده می‌شود">
+              <Input value={form.supportPhone} onChange={(e) => set("supportPhone", e.target.value)} className="ltr text-right" inputMode="tel" placeholder="09132389654" />
+            </Field>
+            <Field label="شماره پشتیبانی / ادمین" hint="خط دوم تماس برای هماهنگی و پشتیبانی">
+              <Input value={form.adminPhone} onChange={(e) => set("adminPhone", e.target.value)} className="ltr text-right" inputMode="tel" placeholder="09014837991" />
             </Field>
             <Field label="اینستاگرام">
               <Input value={form.instagram} onChange={(e) => set("instagram", e.target.value)} className="ltr text-right" placeholder="auralis.pearl" />

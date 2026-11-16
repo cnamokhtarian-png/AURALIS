@@ -235,6 +235,8 @@ export const storeSettings = pgTable("store_settings", {
   freeShippingThreshold: integer("free_shipping_threshold").notNull().default(0),
   announcement: text("announcement"),
   supportPhone: text("support_phone"),
+  /** Secondary admin/support line shown next to the maker phone. */
+  adminPhone: text("admin_phone"),
   instagram: text("instagram"),
   address: text("address"),
   /** Cover photo of the home-page hero; null = the bundled /images/hero.jpg. */
@@ -402,6 +404,7 @@ export const storeAgentSettings = pgTable("store_agent_settings", {
   leadMagnetUrl: text("lead_magnet_url").notNull().default(""),
   storeUrl: text("store_url").notNull().default(""),
   supportPhone: text("support_phone").notNull().default(""),
+  adminPhone: text("admin_phone").notNull().default(""),
   targetAudience: text("target_audience").notNull().default(""),
   maxDiscountPercent: integer("max_discount_percent").notNull().default(10),
   dailySendCap: integer("daily_send_cap").notNull().default(30),

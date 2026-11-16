@@ -839,3 +839,21 @@ exception when undefined_object then null; end $$;
 do $$ begin
   revoke all on sequence store_product_posts_id_seq from anon, authenticated;
 exception when undefined_object then null; end $$;
+
+
+-- ══════════ 0008_contact_phones.sql ══════════
+-- AURALIS — maker + admin contact lines (plain digits, no dashes).
+alter table store_settings add column if not exists admin_phone text;
+alter table store_agent_settings add column if not exists admin_phone text not null default '';
+
+update store_settings
+set support_phone = '09132389654',
+    admin_phone = '09014837991',
+    updated_at = now()
+where id = 1;
+
+update store_agent_settings
+set support_phone = '09132389654',
+    admin_phone = '09014837991',
+    updated_at = now()
+where id = 1;

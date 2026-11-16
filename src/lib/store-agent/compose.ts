@@ -1,5 +1,6 @@
 import type { Lead, StoreAgentSettings, StoreMessage } from "@/db/schema";
 import { aiComplete } from "@/lib/ai";
+import { phoneLabel } from "@/lib/utils";
 import { catalogContext, formatToman, pickProductFor, type Catalog } from "./catalog";
 import { channelLabel } from "./constants";
 
@@ -59,7 +60,8 @@ function systemPrompt(settings: StoreAgentSettings, catalog: Catalog) {
       ? `قلاب جذب رایگان: ${settings.leadMagnetTitle}${settings.leadMagnetUrl ? ` — ${settings.leadMagnetUrl}` : ""}`
       : "",
     settings.storeUrl ? `لینک خرید: ${settings.storeUrl}` : "",
-    settings.supportPhone ? `پشتیبانی: ${settings.supportPhone}` : "",
+    settings.supportPhone ? `سفارش و مشاوره: ${phoneLabel(settings.supportPhone)}` : "",
+    settings.adminPhone ? `پشتیبانی و هماهنگی: ${phoneLabel(settings.adminPhone)}` : "",
     "فهرست محصولات واقعی:",
     catalogContext(catalog, 8),
     "قواعد: پیام حداکثر ۶۰۰ کاراکتر، حداکثر دو ایموجی، یک دعوت به اقدام روشن، بدون فشار و بدون وعده غیرواقعی.",

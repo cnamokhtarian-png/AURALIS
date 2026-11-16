@@ -7,6 +7,7 @@ import {
   type StoreChannel,
 } from "@/db/schema";
 import { decryptValue, encryptValue, loadSettings, SETTING_KEYS } from "@/lib/control/settings";
+import { phoneLabel } from "@/lib/utils";
 import { CHANNEL_META, CHANNEL_KEYS, type ChannelKey } from "./constants";
 
 /**
@@ -23,6 +24,8 @@ const DEFAULTS: Partial<StoreAgentSettings> = {
   brandVoice:
     "لحن آورالیس: صمیمی، خانگی، محترمانه و بدون اغراق. جملات کوتاه، فارسی روان، بدون ایموجی زیاد (حداکثر دو ایموجی).",
   offerText: "ارسال رایگان برای سفارش‌های بالای ۲ میلیون تومان + بسته‌بندی هدیه رایگان",
+  supportPhone: "09132389654",
+  adminPhone: "09014837991",
   leadMagnetTitle: "کاتالوگ PDF مروارید ۱۴۰۴ + راهنمای انتخاب کیف مجلسی",
   targetAudience:
     "زنان ۲۲ تا ۴۵ سال، علاقه‌مند به اکسسوری دست‌ساز و هدیه خاص؛ خریداران عروسی، تولد و هدیه سازمانی",
@@ -57,6 +60,7 @@ export type AgentSettingsPatch = Partial<
     | "leadMagnetUrl"
     | "storeUrl"
     | "supportPhone"
+    | "adminPhone"
     | "targetAudience"
     | "maxDiscountPercent"
     | "dailySendCap"
@@ -236,7 +240,8 @@ export function brandContext(settings: StoreAgentSettings) {
       ? `قلاب جذب: ${settings.leadMagnetTitle}${settings.leadMagnetUrl ? ` (${settings.leadMagnetUrl})` : ""}`
       : "",
     settings.storeUrl ? `لینک فروشگاه: ${settings.storeUrl}` : "",
-    settings.supportPhone ? `پشتیبانی: ${settings.supportPhone}` : "",
+    settings.supportPhone ? `سفارش و مشاوره: ${phoneLabel(settings.supportPhone)}` : "",
+    settings.adminPhone ? `پشتیبانی و هماهنگی: ${phoneLabel(settings.adminPhone)}` : "",
     settings.targetAudience ? `مخاطب هدف: ${settings.targetAudience}` : "",
     `سقف تخفیف مجاز در مذاکره: ${settings.maxDiscountPercent}٪`,
   ]
