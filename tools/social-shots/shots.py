@@ -281,6 +281,14 @@ THEMES = {
 
 # --------------------------------------------------------------- the screen
 class Shot:
+    """Persian (RTL) Telegram-like chat card.
+
+    Everything is mirrored the way a Persian Telegram looks: the customer's
+    messages hug the RIGHT edge, the shop's own messages the LEFT, the back
+    arrow points right, timestamps sit at the bottom-LEFT of every bubble and
+    the words inside a line run right-to-left.
+    """
+
     def __init__(self, spec):
         self.spec = spec
         self.t = THEMES[spec.get("theme", "dark")]
@@ -324,9 +332,34 @@ class Shot:
         self.H = int(y + self.INPUT_H - 6)
 
     def x_of(self, it):
+        """Incoming (customer) hugs the right edge, outgoing hugs the left."""
         if it.get("side", "in") == "in":
-            return self.PAD
-        return self.W - self.PAD - it["w"]
+            return self.W - self.PAD - it["w"]
+        return self.PAD
+
+    # ---------------- text helpers
+    def text_width(self, text, size, weight="regular"):
+        toks = text.split()
+        if not toks:
+            return 0
+        sp = space_width(size, weight)
+        return sum(token_metrics(t, size, weight)[0] for t in toks) + sp * (len(toks) - 1)
+
+    def write_rtl(self, mvg, text, size, weight, color, x_right, baseline):
+        """One line laid out right-to-left: the first word ends at `x_right`."""
+        tokens = text.split()
+        if not tokens:
+            return 0
+        sp = space_width(size, weight)
+        metrics = [token_metrics(t, size, weight) for t in tokens]
+        total = sum(w for w, _ in metrics) + sp * (len(tokens) - 1)
+        cursor = x_right
+        for w, placed in metrics:
+            cursor -= w
+            for dx, d in placed:
+                mvg.text(d, color, cursor + dx, baseline)
+            cursor -= sp
+        return total
 
     # ---------------- draw
     def draw(self, out_png, photos=None):
@@ -335,28 +368,27 @@ class Shot:
         txt = MVG(W, H)
         base.rect(0, 0, W, H, t["chat"])
 
-        # ---- header
+        # ---- header (mirrored: back arrow + avatar on the right)
         base.rect(0, 0, W, self.HEADER_H, t["header"])
         base.line(0, self.HEADER_H, W, self.HEADER_H, t["hair"], 2)
-        base.line(26, 48, 40, self.HEADER_H / 2, t["icon"], 3)
-        base.line(26, self.HEADER_H - 48, 40, self.HEADER_H / 2, t["icon"], 3)
-        base.circle(108, self.HEADER_H / 2, 33, self.spec.get("avatar", "#e8875c"))
+        base.line(W - 26, 48, W - 40, self.HEADER_H / 2, t["icon"], 3)
+        base.line(W - 26, self.HEADER_H - 48, W - 40, self.HEADER_H / 2, t["icon"], 3)
+        base.circle(W - 108, self.HEADER_H / 2, 33, self.spec.get("avatar", "#e8875c"))
         d, w = face("bold").shape(self.spec.get("initial", "؟"), 30)
-        txt.text(d, "#ffffff", 108 - w / 2, self.HEADER_H / 2 + 11)
-        d, _ = face("semibold").shape(self.spec.get("name", ""), 30)
-        txt.text(d, t["text"], 160, 56)
-        d, _ = face("regular").shape(self.spec.get("status", ""), 21)
-        txt.text(d, t["dim"], 160, 92)
+        txt.text(d, "#ffffff", W - 108 - w / 2, self.HEADER_H / 2 + 11)
+        self.write_rtl(txt, self.spec.get("name", ""), 30, "semibold", t["text"], W - 160, 56)
+        self.write_rtl(txt, self.spec.get("status", ""), 21, "regular", t["dim"], W - 160, 92)
         for i in range(3):
-            base.circle(W - 36, self.HEADER_H / 2 - 13 + i * 13, 2.4, t["icon"])
+            base.circle(36, self.HEADER_H / 2 - 13 + i * 13, 2.4, t["icon"])
 
         # ---- date chip
         label = self.spec.get("date", "امروز")
-        d, dw = face("medium").shape(label, 21)
+        _, dw = face("medium").shape(label, 21)
         chip_w = dw + 32
         cx = W / 2 - chip_w / 2
         base.round_rect(cx, self.HEADER_H + 12, cx + chip_w, self.HEADER_H + 40, 14, t["date_bg"])
-        txt.text(d, t["date_fg"], cx + 16, self.HEADER_H + 34)
+        self.write_rtl(txt, label, 21, "medium", t["date_fg"], cx + chip_w - 16,
+                       self.HEADER_H + 34)
 
         # ---- messages
         for it in self.items:
@@ -364,20 +396,18 @@ class Shot:
                 continue
             self.draw_bubble(base, txt, it)
 
-        # ---- input bar
+        # ---- input bar (mirrored: mic on the left, attach on the right)
         iy = H - self.INPUT_H
+        cym = iy + self.INPUT_H / 2
         base.rect(0, iy, W, H, t["input_bg"])
         base.line(0, iy, W, iy, t["hair"], 2)
         base.round_rect(56, iy + 22, W - 56, iy + self.INPUT_H - 22, 23, t["input_field"])
-        base.line(W - 30, iy + 44, W - 30, iy + self.INPUT_H - 44, t["icon"], 3)
-        base.circle(38, iy + self.INPUT_H / 2 - 3, 10, t["icon"])
-        base.poly(
-            [(34, iy + self.INPUT_H / 2 + 10), (42, iy + self.INPUT_H / 2 + 10),
-             (38, iy + self.INPUT_H / 2 + 19)],
-            t["icon"],
-        )
-        d, _ = face("regular").shape("پیام", 24)
-        txt.text(d, t["dim"], 74, iy + self.INPUT_H / 2 + 9)
+        base.line(W - 46, cym, W - 30, cym, t["icon"], 3)
+        base.line(W - 38, cym - 8, W - 38, cym + 8, t["icon"], 3)
+        base.round_rect(30, cym - 16, 46, cym + 2, 8, t["icon"])
+        base.line(24, cym + 6, 52, cym + 6, t["icon"], 3)
+        base.line(38, cym + 6, 38, cym + 16, t["icon"], 3)
+        self.write_rtl(txt, "پیام", 24, "regular", t["dim"], W - 82, cym + 9)
 
         tmpdir = tempfile.mkdtemp(prefix="shot_")
         canvas = Image.open(
@@ -390,120 +420,84 @@ class Shot:
                 continue
             img = prep_photo(photos[it["photo"]], it["w"], seed=it.get("seed", 1),
                              crop=it.get("crop", "center"))
-            x = self.x_of(it)
-            canvas.alpha_composite(img, (x, it["y"]))
+            canvas.alpha_composite(img, (self.x_of(it), it["y"]))
 
-        # ---- photo time pills (drawn with the text layer, above the photo)
         for it in self.items:
             if it["kind"] != "photo" or not photos or it.get("photo") not in photos:
                 continue
             self.draw_photo_pill(txt, it)
 
-        # ---- text
         canvas.alpha_composite(
             Image.open(render_mvg(txt, os.path.join(tmpdir, "txt.png"), W, H)).convert("RGBA")
         )
         canvas.convert("RGB").save(out_png, optimize=True)
         return out_png
 
-    def write_rtl(self, mvg, text, size, weight, color, x_right, baseline):
-        """Lay out one line right-to-left (digits stay left-to-right)."""
-        tokens = text.split()
-        if not tokens:
-            return 0
-        sp = space_width(size, weight)
-        metrics = [token_metrics(t, size, weight) for t in tokens]
-        total = sum(w for w, _ in metrics) + sp * (len(tokens) - 1)
-        cursor = x_right - total
-        for w, placed in metrics:
-            for dx, d in placed:
-                mvg.text(d, color, cursor + dx, baseline)
-            cursor += w + sp
-        return total
-
-    def draw_label(self, txt, label, x_left, baseline, color):
-        """Left-aligned RTL label (the `edited` mark sits on the left of a bubble)."""
-        sp = space_width(22, "semibold")
-        metrics = [token_metrics(tk, 22, "semibold") for tk in label.split()]
-        c = x_left
-        for w, placed in metrics:
-            for dx, d in placed:
-                txt.text(d, color, c + dx, baseline)
-            c += w + sp
-
     def draw_photo_pill(self, txt, it):
         label = it.get("time", "")
-        sp = space_width(19, "regular")
-        tw = sum(token_metrics(t, 19, "regular")[0] for t in label.split())
+        tw = self.text_width(label, 19, "regular")
         pw, ph = tw + 22, 28
-        x = self.x_of(it) + it["w"] - 10 - pw
-        y = self.y_photo_pill(it)
+        x = self.x_of(it) + 10
+        y = it["y"] + it["h"] - 10 - ph
         txt.round_rect(x, y, x + pw, y + ph, ph / 2, "#000000", 0.52)
         self.write_rtl(txt, label, 19, "regular", "#ffffff", x + pw - 11, y + 19)
 
     # ---------------- one message
-    def y_photo_pill(self, it):
-        return it["y"] + it["h"] - 10 - 28
-
     def draw_bubble(self, base, txt, it):
         t = self.t
         x = self.x_of(it)
         out = it.get("side", "in") == "out"
         fill = t["bubble_out"] if out else t["bubble_in"]
-        tail = it.get("tail", True)
         base.round_rect(x, it["y"], x + it["w"], it["y"] + it["h"], self.RADIUS, fill)
 
         if it["kind"] == "voice":
             cy = it["y"] + 42
-            base.circle(x + 42, cy, 22, t["accent"])
-            base.poly([(x + 35, cy - 10), (x + 35, cy + 10), (x + 51, cy)], "#ffffff")
+            base.circle(x + it["w"] - 42, cy, 22, t["accent"])
+            base.poly([(x + it["w"] - 51, cy - 10), (x + it["w"] - 51, cy + 10),
+                       (x + it["w"] - 33, cy)], "#ffffff")
             rnd = random.Random(3)
             for i in range(22):
                 bh = rnd.choice([8, 14, 20, 28, 34, 24, 16])
-                bx = x + 84 + i * 7.4
+                bx = x + it["w"] - 86 - i * 7.4
                 base.round_rect(bx, cy - bh / 2, bx + 3, cy + bh / 2, 1.5,
                                 t["accent"] if i < 13 else t["dim"])
-            self.write_rtl(txt, it.get("dur", "۰:۱۹"), 20, "medium", t["time_in"],
-                           x + it["w"] - 16, cy + 7)
+            dur = it.get("dur", "۰:۱۹")
+            dw = self.text_width(dur, 20, "medium")
+            self.write_rtl(txt, dur, 20, "medium", t["time_in"], x + 16 + dw, cy + 7)
+            tww = self.text_width(it.get("time", ""), self.TS, "regular")
             self.write_rtl(txt, it.get("time", ""), self.TS, "regular", t["time_in"],
-                           x + it["w"] - 18, it["y"] + it["h"] - 12)
+                           x + 18 + tww, it["y"] + it["h"] - 12)
             return
 
+        # body: words run right-to-left, first word at the right edge
         ty = it["y"] + self.BPAD_Y + self.FS
         for ln in it["lines"]:
-            sp = space_width(self.FS)
-            total = line_width(ln, self.FS)
-            cursor = x + it["w"] - self.BPAD_X - total
-            for tok in ln:
-                w, placed = token_metrics(tok, self.FS)
-                for dx, d in placed:
-                    txt.text(d, t["text"], cursor + dx, ty)
-                cursor += w + sp
+            self.write_rtl(txt, " ".join(ln), self.FS, "medium", t["text"],
+                           x + it["w"] - self.BPAD_X, ty)
             ty += self.LH
 
-        # time (+ ticks) at the bottom-right corner of the bubble
+        # timestamp bottom-left, ticks just to its right
         time_s = it.get("time", "")
         ty_time = it["y"] + it["h"] - 10
-        tw = sum(token_metrics(t, self.TS, "regular")[0] for t in time_s.split())
-        tw += space_width(self.TS, "regular") * max(0, len(time_s.split()) - 1)
+        tw = self.text_width(time_s, self.TS, "regular")
         self.write_rtl(txt, time_s, self.TS, "regular",
-                       t["time_out"] if out else t["time_in"],
-                       x + it["w"] - 18, ty_time)
-        tx = x + it["w"] - 18 - tw
+                       t["time_out"] if out else t["time_in"], x + 18 + tw, ty_time)
         if out:
             for k in range(2):
-                bx = tx - 26 + k * 11
+                bx = x + 18 + tw + 8 + k * 11
                 base.line(bx, ty_time - 7, bx + 5, ty_time - 2, t["time_out"], 2)
                 base.line(bx + 5, ty_time - 2, bx + 12, ty_time - 12, t["time_out"], 2)
         if it.get("label"):
-            lw = sum(token_metrics(tk, 22, "semibold")[0] for tk in it["label"].split())
-            self.draw_label(txt, it["label"], x + 20, ty_time, t["dim"])
-        if tail:
+            self.write_rtl(txt, it["label"], 22, "semibold", t["dim"],
+                           x + it["w"] - 20, ty_time)
+
+        # bubble tail on the outer edge
+        if it.get("tail", True):
             if out:
-                base.poly([(x + it["w"] - 16, it["y"] + it["h"] - 16),
-                           (x + it["w"] + 12, it["y"] + it["h"] - 2),
-                           (x + it["w"] - 16, it["y"] + it["h"] - 2)], fill)
-            else:
                 base.poly([(x + 16, it["y"] + it["h"] - 16),
                            (x - 12, it["y"] + it["h"] - 2),
                            (x + 16, it["y"] + it["h"] - 2)], fill)
+            else:
+                base.poly([(x + it["w"] - 16, it["y"] + it["h"] - 16),
+                           (x + it["w"] + 12, it["y"] + it["h"] - 2),
+                           (x + it["w"] - 16, it["y"] + it["h"] - 2)], fill)

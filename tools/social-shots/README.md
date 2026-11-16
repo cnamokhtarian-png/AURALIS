@@ -3,6 +3,11 @@
 Generator for the four "customer chat" images published in the Telegram channel
 `@Auralis_Pearl` (posts 19–22, re-issued as 23–26).
 
+The chat is mirrored the way a Persian Telegram looks: the customer's messages
+hug the **right** edge, the shop's own messages the **left**, the back arrow
+points right and timestamps sit at the bottom-left of each bubble. Words inside
+a line are laid out right-to-left (first word ends at the right edge).
+
 The Persian text is **shaped with HarfBuzz** (the same engine browsers use) and
 emitted as SVG paths, so joining, bidi and word order are correct. Numbers
 (`۱۲:۰۶`, `۰:۱۹`, `۱٬۷۰۰٬۰۰۰`) are shaped left-to-right. The images are 900 px
