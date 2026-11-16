@@ -98,12 +98,12 @@ export function productCaption(product: CatalogueProduct, options: {
     lines.push("", `🎁 ${escapeHtml(clamp(options.offerText, 140))}`);
   }
 
-  lines.push(
-    "",
-    `<a href="${url}">مشاهده و خرید در سایت</a>`,
-    "",
-    `#AURALIS${options.brandName ? ` #${escapeHtml(options.brandName.replace(/\s+/g, "_"))}` : ""}`,
-  );
+  const brandTag = options.brandName?.trim()
+    ? `#${options.brandName.trim().replace(/\s+/g, "_").replace(/[^\w\u0600-\u06FF_]/g, "")}`
+    : "";
+  const tags = [...new Set(["#AURALIS", brandTag].filter((tag) => tag && tag !== "#"))];
+
+  lines.push("", `<a href="${url}">مشاهده و خرید در سایت</a>`, "", tags.join(" "));
 
   return lines.join("\n");
 }
@@ -315,7 +315,7 @@ export async function broadcastCatalogue(options: {
   productIds?: number[];
 } = {}): Promise<CatalogueBroadcastSummary> {
   const channel = options.channel ?? "telegram";
-  const gapMs = Math.max(0, Math.min(options.gapMs ?? 2600, 10_000));
+  const gapMs = Math.max(0, Math.min(options.gapMs ?? 3200, 10_000));
   const limit = Math.max(1, Math.min(options.limit ?? 6, 20));
 
   const [catalogue, states] = await Promise.all([
