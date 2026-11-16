@@ -531,6 +531,30 @@ export const marketingPosts = pgTable("marketing_posts", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * One row per product that was broadcast as a photo post to a channel.
+ * The unique (product, channel) pair makes «انتشار همه محصولات» idempotent:
+ * pressing it again only sends products that were never published.
+ */
+export const storeProductPosts = pgTable(
+  "store_product_posts",
+  {
+    id: serial("id").primaryKey(),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    channel: text("channel").notNull().default("telegram"),
+    status: text("status").notNull().default("failed"),
+    caption: text("caption"),
+    externalId: text("external_id"),
+    error: text("error"),
+    postedAt: timestamp("posted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("store_product_posts_product_channel_key").on(table.productId, table.channel)],
+);
+
 /** Competitor watch-list used by the market-research module. */
 export const competitors = pgTable("competitors", {
   id: serial("id").primaryKey(),
@@ -708,6 +732,7 @@ export type Campaign = typeof campaigns.$inferSelect;
 export type CampaignStatus = (typeof campaignStatusEnum.enumValues)[number];
 export type MarketingPost = typeof marketingPosts.$inferSelect;
 export type StorePostStatus = (typeof storePostStatusEnum.enumValues)[number];
+export type StoreProductPost = typeof storeProductPosts.$inferSelect;
 export type Competitor = typeof competitors.$inferSelect;
 export type TrendSignal = typeof trendSignals.$inferSelect;
 export type ResearchReport = typeof researchReports.$inferSelect;
