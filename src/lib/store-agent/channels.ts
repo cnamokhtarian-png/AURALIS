@@ -26,6 +26,14 @@ export type SendTarget = {
   body: string;
 };
 
+export type PhotoTarget = SendTarget & {
+  photo: string;
+  /** Optional HTML caption; Telegram's limit is 1024 characters. */
+  caption?: string;
+  /** Backfilling a catalogue should not ping thousands of phones. */
+  silent?: boolean;
+};
+
 function manualShareUrl(channel: string, handle?: string | null) {
   const clean = (handle ?? "").replace(/^@/, "").trim();
   if (!clean) return null;
@@ -102,6 +110,56 @@ export async function sendChannelMessage(target: SendTarget): Promise<SendResult
     chat_id: target.externalId,
     text: body.length > 4000 ? `${body.slice(0, 4000)}…` : body,
     disable_web_page_preview: true,
+  });
+
+  if (!res.ok) return { ok: false, mode: "api", error: res.error };
+  return {
+    ok: true,
+    mode: "api",
+    externalId: res.result.message_id ? String(res.result.message_id) : null,
+  };
+}
+
+/**
+ * Publishes a real photo post (product catalogue) instead of plain text.
+ * Telegram fetches the image from the public Supabase Storage URL itself, so
+ * the serverless function never has to download or re-upload megabytes.
+ */
+export async function sendChannelPhoto(target: PhotoTarget): Promise<SendResult> {
+  const meta = channelMeta(target.channel);
+  const photo = target.photo.trim();
+  if (!photo) return { ok: false, mode: "api", error: "عکس محصول موجود نیست." };
+
+  if (meta.mode !== "api") {
+    return {
+      ok: false,
+      mode: "manual",
+      shareUrl: manualShareUrl(target.channel, target.handle),
+      info: `کانال ${meta.label} ارسال عکس خودکار ندارد؛ عکس و متن را از حساب رسمی منتشر کنید.`,
+    };
+  }
+
+  const [token, base] = await Promise.all([
+    resolveChannelToken(target.channel),
+    resolveChannelApiBase(target.channel),
+  ]);
+  if (!token) {
+    return {
+      ok: false,
+      mode: "api",
+      error: `توکن ربات ${meta.label} تنظیم نشده است (تنظیمات ایجنت فروشگاه).`,
+    };
+  }
+  if (!base) return { ok: false, mode: "api", error: `آدرس API کانال ${meta.label} مشخص نیست.` };
+  if (!target.externalId) return { ok: false, mode: "api", error: "مقصد انتشار (آیدی کانال) ثبت نشده است." };
+
+  const caption = (target.caption ?? target.body).trim();
+  const res = await botCall(base, token, "sendPhoto", {
+    chat_id: target.externalId,
+    photo,
+    caption: caption.length > 1024 ? `${caption.slice(0, 1023)}…` : caption,
+    parse_mode: "HTML",
+    disable_notification: target.silent ?? true,
   });
 
   if (!res.ok) return { ok: false, mode: "api", error: res.error };
