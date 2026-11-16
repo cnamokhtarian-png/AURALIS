@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     const summary = await broadcastCatalogue({
       force: input.force === true,
       limit: Number(input.limit ?? 6),
-      gapMs: Number(input.gapMs ?? 2600),
+      gapMs: Number(input.gapMs ?? 3200),
     });
 
     return ok({

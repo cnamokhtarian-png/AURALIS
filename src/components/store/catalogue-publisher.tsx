@@ -144,7 +144,7 @@ export function CataloguePublisher({
         const res = await fetch("/api/control/store/catalog", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action: "publish-all", force, limit: 4, gapMs: 2800 }),
+          body: JSON.stringify({ action: "publish-all", force, limit: 4, gapMs: 3200 }),
         });
         const data = (await res.json()) as ApiResult;
         if (!res.ok || data.error) {
