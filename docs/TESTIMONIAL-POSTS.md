@@ -72,12 +72,12 @@
 
 | پیام | فایل |
 | --- | --- |
-| `https://t.me/Auralis_Pearl/23` | `01-black-bag.png` |
-| `https://t.me/Auralis_Pearl/24` | `02-ring-box.png` |
-| `https://t.me/Auralis_Pearl/25` | `03-pastel-bag.png` |
-| `https://t.me/Auralis_Pearl/26` | `04-green-bag.png` |
+| `https://t.me/Auralis_Pearl/30` | `01-black-bag.png` (کیف مشکی) |
+| `https://t.me/Auralis_Pearl/27` | `02-ring-box.png` (جعبهٔ مرواریدی) |
+| `https://t.me/Auralis_Pearl/28` | `03-pastel-bag.png` (کیف پاستیلی) |
+| `https://t.me/Auralis_Pearl/29` | `04-green-bag.png` (کیف سبز) |
 
-پست‌های قبلی (۱۹ تا ۲۲) که متن‌شان ناخوانا بود حذف شدند.
+پست‌های قبلی (۱۹ تا ۲۶) که متن‌شان ناخوانا یا برعکس بود حذف شدند.
 
 ## بازسازی تصاویر
 
