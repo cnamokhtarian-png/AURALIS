@@ -26,7 +26,8 @@ const DEFAULT_SETTINGS = {
   shippingFee: 85000,
   freeShippingThreshold: 3000000,
   announcement: "ارسال رایگان برای سفارش‌های بالای ۳ میلیون تومان",
-  supportPhone: "09120000000",
+  supportPhone: "09132389654",
+  adminPhone: "09014837991",
   instagram: "auralis.pearl",
   address: "تهران، خیابان ولیعصر، آتلیه آورالیس",
 };
@@ -49,6 +50,7 @@ export function publicSettings(s: StoreSettings) {
     freeShippingThreshold: s.freeShippingThreshold,
     announcement: s.announcement,
     supportPhone: s.supportPhone,
+    adminPhone: s.adminPhone,
     instagram: s.instagram,
     address: s.address,
   };

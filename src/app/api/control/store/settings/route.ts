@@ -49,6 +49,7 @@ function cleanSettings(input: Record<string, unknown>): AgentSettingsPatch {
     "leadMagnetUrl",
     "storeUrl",
     "supportPhone",
+    "adminPhone",
     "targetAudience",
     "timezone",
     "researchCadence",

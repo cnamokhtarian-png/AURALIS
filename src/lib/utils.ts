@@ -145,3 +145,31 @@ export const PROVINCES = [
   "خراسان شمالی",
   "خراسان جنوبی",
 ];
+
+export function toPersianDigits(input: string) {
+  const fa = "۰۱۲۳۴۵۶۷۸۹";
+  return input.replace(/\d/g, (d) => fa[Number(d)]);
+}
+
+/**
+ * Public contact numbers are stored as plain digits. Displaying them with
+ * dashes (`0901-483-7991`) makes Telegram's RTL renderer reorder the groups,
+ * so the UI and captions use one continuous run of Persian digits.
+ */
+export function phoneDigits(input: string | null | undefined) {
+  let digits = toEnglishDigits(input ?? "").replace(/\D/g, "");
+  if (digits.startsWith("0098")) digits = `0${digits.slice(4)}`;
+  else if (digits.startsWith("98") && digits.length === 12) digits = `0${digits.slice(2)}`;
+  return digits;
+}
+
+export function phoneLabel(input: string | null | undefined) {
+  const digits = phoneDigits(input);
+  return digits ? toPersianDigits(digits) : "";
+}
+
+export function phoneHref(input: string | null | undefined) {
+  const digits = phoneDigits(input);
+  if (!digits) return "";
+  return `tel:${digits.startsWith("0") ? `+98${digits.slice(1)}` : digits}`;
+}

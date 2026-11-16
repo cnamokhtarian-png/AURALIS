@@ -12,7 +12,12 @@ export default async function StoreLayout({ children }: { children: ReactNode })
     <div className="flex min-h-screen flex-col">
       <SiteHeader user={user} announcement={settings.announcement} />
       <main className="flex-1">{children}</main>
-      <SiteFooter supportPhone={settings.supportPhone} instagram={settings.instagram} address={settings.address} />
+      <SiteFooter
+        supportPhone={settings.supportPhone}
+        adminPhone={settings.adminPhone}
+        instagram={settings.instagram}
+        address={settings.address}
+      />
     </div>
   );
 }

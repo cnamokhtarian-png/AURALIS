@@ -358,6 +358,7 @@ async function runSeed() {
     freeShippingThreshold: 3000000,
     announcement: "ارسال رایگان برای سفارش‌های بالای ۳ میلیون تومان · بسته‌بندی هدیه رایگان",
     supportPhone: "09120000000",
+    adminPhone: "09120000001",
     instagram: "auralis.pearl",
     address: "تهران، خیابان ولیعصر، نرسیده به پارک ساعی، آتلیه آورالیس",
   });

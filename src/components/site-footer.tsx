@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { AtSign, MapPin, Phone, ShieldCheck, Truck, Gift, CreditCard } from "lucide-react";
 import { Logo } from "@/components/site-header";
+import { phoneHref, phoneLabel } from "@/lib/utils";
 
 export function SiteFooter({
   supportPhone,
+  adminPhone,
   instagram,
   address,
 }: {
   supportPhone: string | null;
+  adminPhone: string | null;
   instagram: string | null;
   address: string | null;
 }) {
@@ -58,7 +61,19 @@ export function SiteFooter({
               {supportPhone && (
                 <li className="flex items-center gap-2">
                   <Phone className="size-4 text-gold" />
-                  <span className="ltr">{supportPhone}</span>
+                  <span className="text-pearl/50">سفارش و مشاوره:</span>
+                  <a href={phoneHref(supportPhone)} className="ltr font-medium text-pearl hover:text-gold" dir="ltr">
+                    {phoneLabel(supportPhone)}
+                  </a>
+                </li>
+              )}
+              {adminPhone && (
+                <li className="flex items-center gap-2">
+                  <Phone className="size-4 text-gold" />
+                  <span className="text-pearl/50">پشتیبانی و هماهنگی:</span>
+                  <a href={phoneHref(adminPhone)} className="ltr font-medium text-pearl hover:text-gold" dir="ltr">
+                    {phoneLabel(adminPhone)}
+                  </a>
                 </li>
               )}
               {instagram && (

@@ -29,6 +29,7 @@ export type SettingsFormValues = {
   leadMagnetUrl: string;
   storeUrl: string;
   supportPhone: string;
+  adminPhone: string;
   targetAudience: string;
   maxDiscountPercent: number;
   dailySendCap: number;
@@ -257,8 +258,12 @@ export function StoreSettingsForm({
             <input value={settings.offerText} onChange={(e) => setSettings({ ...settings, offerText: e.target.value })} className="cc-input w-full text-[11px]" placeholder="ارسال رایگان بالای ۲ میلیون" />
           </label>
           <label className="block">
-            <span className="cc-label">تلفن پشتیبانی</span>
-            <input value={settings.supportPhone} onChange={(e) => setSettings({ ...settings, supportPhone: e.target.value })} className="cc-input cc-ltr w-full text-[11px]" placeholder="021…" />
+            <span className="cc-label">تلفن سازنده (اصلی)</span>
+            <input value={settings.supportPhone} onChange={(e) => setSettings({ ...settings, supportPhone: e.target.value })} className="cc-input cc-ltr w-full text-[11px]" placeholder="0913…" inputMode="tel" />
+          </label>
+          <label className="block">
+            <span className="cc-label">تلفن پشتیبانی / ادمین</span>
+            <input value={settings.adminPhone} onChange={(e) => setSettings({ ...settings, adminPhone: e.target.value })} className="cc-input cc-ltr w-full text-[11px]" placeholder="0901…" inputMode="tel" />
           </label>
         </div>
         <label className="mt-3 block">
