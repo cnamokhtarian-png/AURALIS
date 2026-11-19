@@ -100,8 +100,8 @@ export function digestText(params: {
   drafts: number;
   dueFollowUps: number;
   sent: number;
-  won: number;
-  revenue: number;
+  paidOrdersToday: number;
+  revenueToday: number;
   topInsight?: string;
 }) {
   return [
@@ -111,7 +111,7 @@ export function digestText(params: {
     `✍️ پیش‌نویس منتظر تایید: <b>${params.drafts}</b>`,
     `⏰ پیگیری سررسید: <b>${params.dueFollowUps}</b>`,
     `📤 ارسال‌شده امروز: <b>${params.sent}</b>`,
-    `🏆 فروش ثبت‌شده: <b>${params.won}</b> · ${new Intl.NumberFormat("fa-IR").format(params.revenue)} تومان`,
+    `🛍️ سفارش پرداخت‌شده امروز: <b>${params.paidOrdersToday}</b> · درآمد: ${new Intl.NumberFormat("fa-IR").format(params.revenueToday)} تومان`,
     params.topInsight ? `\n💡 بینش روز: ${escapeHtml(params.topInsight)}` : "",
   ]
     .filter(Boolean)

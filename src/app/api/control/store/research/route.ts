@@ -1,11 +1,13 @@
 import { bad, ok, readJson, requireOperator } from "@/lib/control/api";
 import { storeApiError } from "@/lib/store-agent/http";
-import { listReports, listCompetitors, listTrends, runResearch } from "@/lib/store-agent/research";
+import { listReports, listCompetitors, listTrends } from "@/lib/store-agent/research";
 import { runResearchAgent } from "@/lib/store-agent/pipeline";
 import type { ResearchKind } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
+
+const RESEARCH_KINDS: ResearchKind[] = ["competitor", "pricing", "trend", "custom"];
 
 export async function GET() {
   const guard = await requireOperator();
@@ -27,31 +29,37 @@ type Body = {
   kind?: ResearchKind;
   useSearch?: boolean;
   prompt?: string;
-  log?: boolean;
 };
 
 export async function POST(req: Request) {
   const guard = await requireOperator();
   if ("response" in guard) return guard.response;
-  const body = (await readJson<Body>(req)) ?? {};
+
+  const raw = await readJson<Record<string, unknown>>(req);
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return bad("بدنه درخواست معتبر نیست.");
+  if (raw.action !== undefined && raw.action !== "run") return bad("اکشن تحقیق نامعتبر است.");
+  if (raw.kind !== undefined && (typeof raw.kind !== "string" || !RESEARCH_KINDS.includes(raw.kind as ResearchKind))) {
+    return bad("نوع تحقیق نامعتبر است.");
+  }
+  if (raw.useSearch !== undefined && typeof raw.useSearch !== "boolean") return bad("گزینه جستجوی وب نامعتبر است.");
+  if (raw.prompt !== undefined && (typeof raw.prompt !== "string" || raw.prompt.length > 2000)) {
+    return bad("تمرکز تحقیق باید متن و حداکثر ۲۰۰۰ نویسه باشد.");
+  }
+
+  const body = raw as Body;
   try {
-    if (body.log) {
-      const run = await runResearchAgent({
-        trigger: "manual",
-        kind: body.kind,
-        useSearch: body.useSearch,
-        prompt: body.prompt,
-      });
-      if (!run.ok) return bad(run.error, 502);
-      return ok({ ...run, info: "گزارش تحقیقات بازار ساخته شد." }, 201);
-    }
-    const result = await runResearch({
-      kind: body.kind ?? "competitor",
+    const result = await runResearchAgent({
+      trigger: "manual",
+      kind: body.kind,
       useSearch: body.useSearch,
-      prompt: body.prompt,
+      prompt: typeof body.prompt === "string" ? body.prompt.trim() : undefined,
     });
+    if (!result.ok) return bad(result.error, 502);
     return ok(
-      { report: result.report, engine: result.engine, info: "گزارش تحقیقات بازار ساخته شد." },
+      {
+        ...result,
+        info: `گزارش تحقیقات بازار ذخیره شد (${result.engine === "ai" ? "هوش مصنوعی" : "قالب محلی"}).`,
+      },
       201,
     );
   } catch (err) {

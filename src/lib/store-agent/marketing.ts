@@ -138,6 +138,23 @@ export async function generateCampaignPosts(campaignId: number, channelsOverride
   const channels = (channelsOverride?.length ? channelsOverride : campaign.channels).filter(Boolean);
   if (!channels.length) return { ok: false as const, error: "هیچ کانالی برای این کمپین انتخاب نشده.", posts: [] };
 
+  const selectedChannels = [...new Set(channels)];
+  if (!selectedChannels.length) return { ok: false as const, error: "هیچ کانالی برای این کمپین انتخاب نشده." };
+
+  const existingRows = await db
+    .select({ channel: marketingPosts.channel })
+    .from(marketingPosts)
+    .where(
+      and(
+        eq(marketingPosts.campaignId, campaign.id),
+        inArray(marketingPosts.channel, selectedChannels),
+        inArray(marketingPosts.status, ["draft", "queued", "sent", "failed"]),
+      ),
+    );
+  const existingChannels = new Set(existingRows.map((row) => row.channel));
+  const skippedChannels = selectedChannels.filter((channel) => existingChannels.has(channel));
+  const channelsToGenerate = selectedChannels.filter((channel) => !existingChannels.has(channel));
+
   const brief: PostBrief = {
     title: campaign.title,
     goal: campaign.goal ?? undefined,
@@ -147,15 +164,15 @@ export async function generateCampaignPosts(campaignId: number, channelsOverride
   };
   const posts: MarketingPost[] = [];
   let aiCount = 0;
-  for (const channel of channels) {
+  for (const channel of channelsToGenerate) {
     const { post, engine } = await insertPost({ channel, brief, settings });
     if (engine === "ai") aiCount += 1;
     posts.push(post);
   }
-  if (campaign.status === "draft") {
+  if (posts.length && campaign.status === "draft") {
     await updateCampaign(campaign.id, { status: "active" });
   }
-  return { ok: true as const, posts, engine: aiCount ? "ai" : "template" };
+  return { ok: true as const, posts, skippedChannels, engine: aiCount ? "ai" : "template" };
 }
 
 /** Quick composer used by the marketing page (single channel, no campaign). */

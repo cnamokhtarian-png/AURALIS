@@ -15,9 +15,9 @@ const NAV = [
   { href: "/about", label: "درباره آورالیس" },
 ];
 
-export function Logo({ className, light }: { className?: string; light?: boolean }) {
+export function Logo({ className, light, onClick }: { className?: string; light?: boolean; onClick?: () => void }) {
   return (
-    <Link href="/" className={cn("group flex items-center gap-2.5", className)}>
+    <Link href="/" onClick={onClick} className={cn("group flex items-center gap-2.5", className)}>
       <span className="relative flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-gold-light via-gold to-gold-dark shadow-soft">
         <span className="size-3.5 rounded-full bg-pearl shadow-inner" />
       </span>
@@ -33,8 +33,11 @@ export function SiteHeader({ user, announcement }: { user: SafeUser | null; anno
   const pathname = usePathname();
   const router = useRouter();
   const { count, hydrated } = useCart();
-  const [open, setOpen] = useState(false);
-  const [menu, setMenu] = useState(false);
+  const routeKey = `${pathname}:${typeof window === "undefined" ? "" : window.location.search}`;
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  const [menuPath, setMenuPath] = useState<string | null>(null);
+  const open = openPath === routeKey;
+  const menu = menuPath === routeKey;
   const [scrolled, setScrolled] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -46,19 +49,25 @@ export function SiteHeader({ user, announcement }: { user: SafeUser | null; anno
   }, []);
 
   useEffect(() => {
-    setOpen(false);
-    setMenu(false);
-  }, [pathname]);
+    const closeOnHistoryNavigation = () => {
+      setOpenPath(null);
+      setMenuPath(null);
+    };
+    window.addEventListener("popstate", closeOnHistoryNavigation);
+    return () => window.removeEventListener("popstate", closeOnHistoryNavigation);
+  }, []);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuPath(null);
     };
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
   async function logout() {
+    setMenuPath(null);
+    setOpenPath(null);
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/");
     router.refresh();
@@ -82,7 +91,7 @@ export function SiteHeader({ user, announcement }: { user: SafeUser | null; anno
       >
         <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <button className="rounded-full p-2 hover:bg-cream lg:hidden" onClick={() => setOpen(true)} aria-label="منو">
+            <button className="rounded-full p-2 hover:bg-cream lg:hidden" onClick={() => setOpenPath(routeKey)} aria-label="منو">
               <Menu className="size-5" />
             </button>
             <Logo />
@@ -120,7 +129,7 @@ export function SiteHeader({ user, announcement }: { user: SafeUser | null; anno
             {user ? (
               <div className="relative" ref={menuRef}>
                 <button
-                  onClick={() => setMenu((m) => !m)}
+                  onClick={() => setMenuPath(menu ? null : routeKey)}
                   className="flex items-center gap-2 rounded-full border border-gold/30 bg-pearl py-1.5 pr-1.5 pl-3 text-sm transition hover:border-gold"
                 >
                   <span className="flex size-7 items-center justify-center rounded-full bg-gradient-to-br from-gold-light to-gold text-xs font-bold text-ink">
@@ -137,17 +146,17 @@ export function SiteHeader({ user, announcement }: { user: SafeUser | null; anno
                     </div>
                     <div className="divider-gold my-1" />
                     {user.role === "admin" && (
-                      <MenuLink href="/admin" icon={<LayoutDashboard className="size-4" />}>
+                      <MenuLink href="/admin" icon={<LayoutDashboard className="size-4" />} onClick={() => setMenuPath(null)}>
                         داشبورد مدیریت
                       </MenuLink>
                     )}
-                    <MenuLink href="/account" icon={<User className="size-4" />}>
+                    <MenuLink href="/account" icon={<User className="size-4" />} onClick={() => setMenuPath(null)}>
                       حساب کاربری
                     </MenuLink>
-                    <MenuLink href="/account/orders" icon={<Package className="size-4" />}>
+                    <MenuLink href="/account/orders" icon={<Package className="size-4" />} onClick={() => setMenuPath(null)}>
                       سفارش‌های من
                     </MenuLink>
-                    <MenuLink href="/account/messages" icon={<MessageCircle className="size-4" />}>
+                    <MenuLink href="/account/messages" icon={<MessageCircle className="size-4" />} onClick={() => setMenuPath(null)}>
                       گفتگوها
                     </MenuLink>
                     <div className="divider-gold my-1" />
@@ -178,11 +187,11 @@ export function SiteHeader({ user, announcement }: { user: SafeUser | null; anno
       {/* Mobile drawer */}
       {open && (
         <div className="fixed inset-0 z-[60] lg:hidden">
-          <div className="absolute inset-0 bg-ink/50 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <div className="absolute inset-0 bg-ink/50 backdrop-blur-sm" onClick={() => setOpenPath(null)} />
           <div className="absolute inset-y-0 right-0 flex w-[82vw] max-w-sm flex-col bg-ivory shadow-luxe animate-fade-up">
             <div className="flex items-center justify-between border-b border-gold/20 px-5 py-4">
-              <Logo />
-              <button onClick={() => setOpen(false)} className="rounded-full p-2 hover:bg-cream" aria-label="بستن">
+              <Logo onClick={() => setOpenPath(null)} />
+              <button onClick={() => setOpenPath(null)} className="rounded-full p-2 hover:bg-cream" aria-label="بستن">
                 <X className="size-5" />
               </button>
             </div>
@@ -191,6 +200,7 @@ export function SiteHeader({ user, announcement }: { user: SafeUser | null; anno
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => setOpenPath(null)}
                   className={cn(
                     "rounded-xl px-4 py-3 text-sm font-medium transition hover:bg-cream",
                     pathname === item.href ? "bg-cream text-ink" : "text-ink-soft",
@@ -210,9 +220,9 @@ export function SiteHeader({ user, announcement }: { user: SafeUser | null; anno
   );
 }
 
-function MenuLink({ href, icon, children }: { href: string; icon: React.ReactNode; children: React.ReactNode }) {
+function MenuLink({ href, icon, children, onClick }: { href: string; icon: React.ReactNode; children: React.ReactNode; onClick?: () => void }) {
   return (
-    <Link href={href} className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-ink-soft transition hover:bg-cream hover:text-ink">
+    <Link href={href} onClick={onClick} className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-ink-soft transition hover:bg-cream hover:text-ink">
       {icon}
       {children}
     </Link>

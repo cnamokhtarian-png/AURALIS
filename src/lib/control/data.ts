@@ -158,6 +158,7 @@ export type DailyEarning = { date: string; amount: number };
 
 export type DashboardStats = {
   totalFound: number;
+  found: number;
   proposalSent: number;
   inProgress: number;
   completed: number;
@@ -228,6 +229,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   return {
     totalFound,
+    found: get("found"),
     proposalSent: get("proposal_sent"),
     inProgress: get("in_progress"),
     completed,

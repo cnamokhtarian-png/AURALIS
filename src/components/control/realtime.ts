@@ -19,7 +19,7 @@ let cached: SupabaseClient | null = null;
 
 export function browserSupabase(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
   if (!cached) {
     cached = createClient(url, key, {
@@ -40,22 +40,29 @@ export function useRealtimeRefresh(tables: string[], refresh: () => void, enable
 
   useEffect(() => {
     if (!enabled) return;
-    const client = browserSupabase();
-    if (!client) return;
 
+    let subscribed = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    const poll = setInterval(() => {
+      if (!subscribed) refreshRef.current();
+    }, 30_000);
     const trigger = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => refreshRef.current(), 600);
     };
+    const client = browserSupabase();
+    if (!client) return () => clearInterval(poll);
 
     const channel = client.channel(`cc-${key}-${Math.random().toString(36).slice(2, 7)}`);
     for (const table of key.split(",")) {
       channel.on("postgres_changes", { event: "*", schema: "public", table }, trigger);
     }
-    channel.subscribe();
+    channel.subscribe((status) => {
+      subscribed = status === "SUBSCRIBED";
+    });
 
     return () => {
+      clearInterval(poll);
       if (timer) clearTimeout(timer);
       void client.removeChannel(channel);
     };

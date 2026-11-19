@@ -23,7 +23,6 @@ export function verifyPassword(password: string, stored: string) {
 }
 
 export function toSafeUser(user: User): SafeUser {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { passwordHash, ...rest } = user;
   return rest;
 }

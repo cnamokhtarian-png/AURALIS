@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
 
 export type CartItem = {
   productId: number;
@@ -25,60 +25,122 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null);
 const STORAGE_KEY = "auralis_cart_v1";
+const CART_EVENT = "auralis:cart-change";
+const EMPTY_ITEMS: CartItem[] = [];
+let cachedRaw: string | null | undefined;
+let cachedItems = EMPTY_ITEMS;
+
+function isCartItem(value: unknown): value is CartItem {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Partial<CartItem>;
+  return (
+    Number.isSafeInteger(item.productId) &&
+    typeof item.slug === "string" &&
+    typeof item.name === "string" &&
+    typeof item.price === "number" && Number.isFinite(item.price) && item.price >= 0 &&
+    (item.image === null || typeof item.image === "string") &&
+    Number.isSafeInteger(item.stock) && (item.stock ?? -1) >= 0 &&
+    Number.isSafeInteger(item.quantity) && (item.quantity ?? 0) > 0
+  );
+}
+
+function parseItems(raw: string | null): CartItem[] {
+  if (!raw) return EMPTY_ITEMS;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return EMPTY_ITEMS;
+    return parsed.filter(isCartItem).map((item) => ({
+      ...item,
+      quantity: Math.min(item.quantity, item.stock),
+    })).filter((item) => item.quantity > 0);
+  } catch {
+    return EMPTY_ITEMS;
+  }
+}
+
+function getItemsSnapshot() {
+  if (typeof window === "undefined") return EMPTY_ITEMS;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw !== cachedRaw) {
+      cachedRaw = raw;
+      cachedItems = parseItems(raw);
+    }
+  } catch {
+    // Keep the last in-memory snapshot when storage is blocked by the browser.
+  }
+  return cachedItems;
+}
+
+function subscribeCart(onChange: () => void) {
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEY || event.key === null) {
+      cachedRaw = undefined;
+      onChange();
+    }
+  };
+  window.addEventListener(CART_EVENT, onChange);
+  window.addEventListener("storage", handleStorage);
+  return () => {
+    window.removeEventListener(CART_EVENT, onChange);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
+function writeItems(items: CartItem[]) {
+  const raw = JSON.stringify(items);
+  try {
+    window.localStorage.setItem(STORAGE_KEY, raw);
+  } catch {
+    // The cart remains usable for this page view if local storage is unavailable.
+  }
+  cachedRaw = raw;
+  cachedItems = items;
+  window.dispatchEvent(new Event(CART_EVENT));
+}
+
+const subscribeNever = () => () => {};
+const hydratedSnapshot = () => true;
+const serverHydratedSnapshot = () => false;
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw));
-    } catch {
-      /* ignore */
-    }
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }, [items, hydrated]);
+  const items = useSyncExternalStore(subscribeCart, getItemsSnapshot, () => EMPTY_ITEMS);
+  const hydrated = useSyncExternalStore(subscribeNever, hydratedSnapshot, serverHydratedSnapshot);
 
   const add = useCallback<CartContextValue["add"]>((item, quantity = 1) => {
-    let result = { ok: true, message: "به سبد خرید اضافه شد." };
-    setItems((prev) => {
-      const existing = prev.find((i) => i.productId === item.productId);
-      const nextQty = (existing?.quantity ?? 0) + quantity;
-      if (nextQty > item.stock) {
-        result = { ok: false, message: `حداکثر ${item.stock} عدد از این محصول موجود است.` };
-        return prev;
-      }
-      if (existing) {
-        return prev.map((i) => (i.productId === item.productId ? { ...i, ...item, quantity: nextQty } : i));
-      }
-      return [...prev, { ...item, quantity }];
-    });
-    return result;
+    const current = getItemsSnapshot();
+    const existing = current.find((cartItem) => cartItem.productId === item.productId);
+    const nextQuantity = (existing?.quantity ?? 0) + quantity;
+    if (!Number.isSafeInteger(quantity) || quantity <= 0 || nextQuantity > item.stock) {
+      return { ok: false, message: `حداکثر ${item.stock} عدد از این محصول موجود است.` };
+    }
+    const next = existing
+      ? current.map((cartItem) => cartItem.productId === item.productId ? { ...cartItem, ...item, quantity: nextQuantity } : cartItem)
+      : [...current, { ...item, quantity }];
+    writeItems(next);
+    return { ok: true, message: "به سبد خرید اضافه شد." };
   }, []);
 
   const setQuantity = useCallback((productId: number, quantity: number) => {
-    setItems((prev) =>
-      prev
-        .map((i) => (i.productId === productId ? { ...i, quantity: Math.min(Math.max(quantity, 0), i.stock) } : i))
-        .filter((i) => i.quantity > 0),
+    if (!Number.isFinite(quantity)) return;
+    writeItems(
+      getItemsSnapshot()
+        .map((item) => item.productId === productId
+          ? { ...item, quantity: Math.min(Math.max(Math.floor(quantity), 0), item.stock) }
+          : item)
+        .filter((item) => item.quantity > 0),
     );
   }, []);
 
   const remove = useCallback((productId: number) => {
-    setItems((prev) => prev.filter((i) => i.productId !== productId));
+    writeItems(getItemsSnapshot().filter((item) => item.productId !== productId));
   }, []);
 
-  const clear = useCallback(() => setItems([]), []);
+  const clear = useCallback(() => writeItems([]), []);
 
   const value = useMemo<CartContextValue>(() => {
-    const count = items.reduce((s, i) => s + i.quantity, 0);
-    const subtotal = items.reduce((s, i) => s + i.quantity * i.price, 0);
+    const count = items.reduce((sum, item) => sum + item.quantity, 0);
+    const subtotal = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
     return { items, hydrated, count, subtotal, add, setQuantity, remove, clear };
   }, [items, hydrated, add, setQuantity, remove, clear]);
 

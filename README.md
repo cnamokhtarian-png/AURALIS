@@ -136,7 +136,7 @@ RLS برای نقش‌های `anon`/`authenticated` فعال و دسترسی آ�
 |---|---|
 | `TELEGRAM_BOT_TOKEN` | توکن ربات از BotFather |
 | `TELEGRAM_CHAT_ID` | شناسهٔ چت شما (به ربات `/start` بدهید؛ خودش می‌گوید) |
-| `TELEGRAM_WEBHOOK_SECRET` | اختیاری؛ محافظت از وب‌هوک |
+| `TELEGRAM_WEBHOOK_SECRET` | کلید احراز وب‌هوک؛ اگر تنظیم نشود، هنگام ثبت وب‌هوک در داشبورد به‌صورت تصادفی ساخته و رمزنگاری می‌شود |
 | `APP_URL` | دامنهٔ عمومی دیپلوی (برای لینک‌های تلگرام و ثبت وب‌هوک) |
 | `OPENAI_API_KEY` / `LLM_MODEL` / `LLM_BASE_URL` | اختیاری؛ فعال‌سازی مدل زبانی برای پروپوزال و ترجمه |
 | `CRON_SECRET` | محافظت از `/api/control/agent/cron` (Vercel Cron) |
@@ -148,8 +148,7 @@ RLS برای نقش‌های `anon`/`authenticated` فعال و دسترسی آ�
 
 1. در تلگرام به **@BotFather** → `/newbot` → توکن را در `TELEGRAM_BOT_TOKEN` بگذارید.
 2. به ربات `/start` بدهید؛ شناسهٔ چت را در `TELEGRAM_CHAT_ID` قرار دهید.
-3. `APP_URL` را با دامنهٔ Vercel پر کنید و در `/control/settings` دکمهٔ **ثبت وب‌هوک** را بزنید
-   (یا دستی: `curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<APP_URL>/api/telegram-webhook"`).
+3. `APP_URL` را با دامنهٔ Vercel پر کنید و در `/control/settings` دکمهٔ **ثبت وب‌هوک** را بزنید؛ اگر `TELEGRAM_WEBHOOK_SECRET` خالی باشد، داشبورد کلید تصادفی را رمزنگاری‌شده ذخیره و به تلگرام ثبت می‌کند. وب‌هوک را بدون `secret_token` دستی ثبت نکنید.
 4. دکمهٔ **ارسال پیام آزمایشی** را بزنید.
 
 رفتار ربات:
@@ -179,8 +178,9 @@ curl -X POST "https://<APP_URL>/api/control/projects" \
 ```
 
 `sourceUrl` یونیک است ⇒ پروژهٔ تکراری ثبت نمی‌شود. پروپوزال خودکار نوشته می‌شود و
-(با `notify`) کارت تایید به تلگرام می‌رود. `GET /api/control/agent/cron` (با `CRON_SECRET`، هدر کرون ورسل یا نشست ادمین)
-همان حلقه را برای پروژه‌های بدون پروپوزال/بدون اطلاع‌رسانی تکمیل می‌کند و در `vercel.json` هر ۳۰ دقیقه اجرا می‌شود.
+(با `notify`) کارت تایید به تلگرام می‌رود. `GET /api/control/agent/cron` فقط با `CRON_SECRET` معتبر
+(هدر `Authorization: Bearer …`) یا نشست مدیر اجرا می‌شود؛ هدر عمومی `x-vercel-cron` به‌تنهایی احراز هویت نیست.
+برای اجرای Vercel Cron، `CRON_SECRET` را در تنظیمات محیط Production پروژه قرار دهید؛ زمان‌بندی فعلی در `vercel.json` روزانه ساعت ۰۳:۱۷ UTC است.
 
 ## موتور اجرای خودکار (بدون سرویس خارجی)
 
@@ -238,15 +238,15 @@ AES-256-GCM رمزنگاری می‌شوند (مایگریشن `0005_app_setting
 **دیتابیس:** `supabase/migrations/0006_store_agent.sql` — جدول‌های `leads`, `lead_events`,
 `store_messages`, `campaigns`, `marketing_posts`, `competitors`, `trend_signals`,
 `research_reports`, `store_agent_runs`, `store_channels`, `store_agent_settings`.
-(در پروژهٔ Supabase فعلی `auralis` این مایگریشن اعمال شده است.)
+(بازبینی read-only در 2026-11-19: پروژهٔ Supabase ۱۸ migration ثبت‌شده و مخزن ۸ فایل محلی دارد. جدول‌ها و ستون‌های موردنیاز در metadata وجود دارند، اما تاریخچه با فایل‌های محلی reconciled نشده است. هیچ migration یا DDL اجرا نشد؛ پیش از اجرای SQL در دیتابیس موجود/production، schema و تاریخچه را تطبیق دهید.)
 
 **متغیرهای محیطی اختیاری:** `GEMINI_API_KEY` / `GEMINI_MODEL` (یا ثبت در تنظیمات داشبورد)،
 `BALE_BOT_TOKEN`، `STORE_AGENT_WEBHOOK_SECRET`، `ALLOW_DEMO_SEED` (فقط لوکال).
 
 **فرم لید مگنت:** `/guide#magnet` → `POST /api/store/lead-magnet` (عمومی، honeypot + rate-limit).
 
-**کرون:** `/api/control/store/agent/cron` با `?secret=…&mode=all|sales|marketing|research`.
-روی Hobby روزانه است؛ برای هر ۱۵ دقیقه از cron-job.org استفاده کنید.
+**کرون:** `/api/control/store/agent/cron` با `Authorization: Bearer <CRON_SECRET>` (یا `STORE_AGENT_WEBHOOK_SECRET`؛ `?secret=` نیز پشتیبانی می‌شود) و `mode=all|sales|marketing|research`.
+زمان‌بندی Vercel در این مخزن روزانه ساعت ۰۶:۲۳ UTC است؛ برای هر ۱۵ دقیقه از cron-job.org استفاده کنید.
 
 راهنمای کامل، فرم inbound، چک‌لیست داده و عیب‌یابی: **`docs/STORE-AGENT-SETUP.md`**.
 

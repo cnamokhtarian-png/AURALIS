@@ -1,9 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { PearlField } from "@/components/hero/hero-motion";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { PearlField, useReducedMotion } from "@/components/hero/hero-motion";
 
 const BRAND = "AURALIS".split("");
+const INTRO_SEEN_KEY = "auralis_intro_v1";
+const INTRO_SEEN_EVENT = "auralis:intro-seen";
+
+function subscribeIntroSeen(onChange: () => void) {
+  window.addEventListener(INTRO_SEEN_EVENT, onChange);
+  return () => window.removeEventListener(INTRO_SEEN_EVENT, onChange);
+}
+
+function introSeenSnapshot() {
+  try {
+    return window.sessionStorage.getItem(INTRO_SEEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markIntroSeen() {
+  try {
+    window.sessionStorage.setItem(INTRO_SEEN_KEY, "1");
+  } catch {
+    // The intro still closes if the browser blocks session storage.
+  }
+  window.dispatchEvent(new Event(INTRO_SEEN_EVENT));
+}
 
 /**
  * Full-screen 2D motion intro: a pearl drops into place, golden rings bloom
@@ -12,43 +36,40 @@ const BRAND = "AURALIS".split("");
  * later visits get a quick brand wipe instead.
  */
 export function BrandIntro() {
+  const seen = useSyncExternalStore(subscribeIntroSeen, introSeenSnapshot, () => false);
+  const reduced = useReducedMotion();
   const [phase, setPhase] = useState<"play" | "fast" | "done">("play");
+  const visiblePhase = phase === "play" && (seen || reduced) ? "fast" : phase;
 
   useEffect(() => {
-    const seen = window.sessionStorage.getItem("auralis_intro_v1") === "1";
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (seen || reduced) {
-      window.sessionStorage.setItem("auralis_intro_v1", "1");
-      setPhase("fast");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (phase === "done") return;
-    const ms = phase === "play" ? 3050 : 620;
-    const timer = setTimeout(() => setPhase("done"), ms);
+    if (visiblePhase === "done") return;
+    const ms = visiblePhase === "play" ? 3050 : 620;
+    const timer = setTimeout(() => {
+      markIntroSeen();
+      setPhase("done");
+    }, ms);
     return () => clearTimeout(timer);
-  }, [phase]);
+  }, [visiblePhase]);
 
   useEffect(() => {
-    if (phase === "done") return;
+    if (visiblePhase === "done") return;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [phase]);
+  }, [visiblePhase]);
 
   const skip = useCallback(() => {
-    window.sessionStorage.setItem("auralis_intro_v1", "1");
-    setPhase((p) => (p === "play" ? "fast" : "done"));
-  }, []);
+    markIntroSeen();
+    setPhase(visiblePhase === "play" ? "fast" : "done");
+  }, [visiblePhase]);
 
-  if (phase === "done") return null;
+  if (visiblePhase === "done") return null;
 
   return (
     <div
       className={`intro-backdrop fixed inset-0 z-[200] flex flex-col items-center justify-center overflow-hidden px-6 ${
-        phase === "fast" ? "intro-leaving" : ""
+        visiblePhase === "fast" ? "intro-leaving" : ""
       }`}
       onClick={skip}
       role="presentation"

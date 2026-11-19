@@ -1,18 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { formatNumber } from "@/lib/utils";
 
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+function subscribeReducedMotion(onChange: () => void) {
+  const query = window.matchMedia(REDUCED_MOTION_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+function reducedMotionSnapshot() {
+  return window.matchMedia(REDUCED_MOTION_QUERY).matches;
+}
+
 export function useReducedMotion() {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const handler = () => setReduced(mq.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return reduced;
+  return useSyncExternalStore(subscribeReducedMotion, reducedMotionSnapshot, () => false);
 }
 
 /** Floating 2D pearls drawn on canvas: soft bokeh spheres drifting upward with
@@ -191,10 +195,7 @@ export function CountUp({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (reduced) {
-      setValue(to);
-      return;
-    }
+    if (reduced) return;
     let raf = 0;
     const io = new IntersectionObserver(
       ([entry]) => {
@@ -221,7 +222,7 @@ export function CountUp({
   return (
     <span ref={ref} className={className}>
       {prefix}
-      {formatNumber(value)}
+      {formatNumber(reduced ? to : value)}
       {suffix}
     </span>
   );

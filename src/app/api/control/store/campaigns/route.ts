@@ -52,7 +52,9 @@ export async function POST(req: Request) {
           posts: generated.posts ?? [],
           engine: generated.ok ? generated.engine : null,
           info: generated.ok
-            ? `${generated.posts.length} پست برای کانال‌ها ساخته شد.`
+            ? generated.posts.length
+              ? `${generated.posts.length} پیش‌نویس برای کانال‌ها ساخته شد.`
+              : "برای کانال‌های کمپین پیش‌نویس موجود بود؛ مورد تکراری ساخته نشد."
             : generated.error,
         },
         201,

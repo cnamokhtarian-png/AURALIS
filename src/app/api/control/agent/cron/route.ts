@@ -1,7 +1,7 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { projects } from "@/db/schema";
-import { bad, checkSecret, ok, requireOperator } from "@/lib/control/api";
+import { checkSecret, ok, requireOperator } from "@/lib/control/api";
 import { notifyProject, regenerateProposal } from "@/lib/control/automation";
 
 export const dynamic = "force-dynamic";
@@ -14,16 +14,15 @@ export const maxDuration = 60;
  *  • drafts proposals for jobs that don't have one yet
  *  • pushes jobs that were never delivered to Telegram
  *
- * Auth: Vercel's own cron header (`Authorization: Bearer $CRON_SECRET`),
- * an admin session cookie, or `?secret=`. Note that Hobby-plan crons cannot
- * carry a secret, so on Hobby the daily run is simply a no-op unless a
- * dashboard is logged in — use the setup cron below for cross-project work.
+ * Auth: CRON_SECRET as a Bearer token (or `?secret=` for external schedulers),
+ * or an authenticated admin session. The public `x-vercel-cron` marker is not
+ * treated as authentication; Vercel sends Authorization when CRON_SECRET is set.
  */
 export async function GET(req: Request) {
-  const isVercelCron = Boolean(req.headers.get("x-vercel-cron"));
-  const guard = await requireOperator();
-  const allowed = ("response" in guard) || isVercelCron || (process.env.CRON_SECRET ? checkSecret(req) : false);
-  if (!allowed) return bad("دسترسی غیرمجاز.", 401);
+  if (!checkSecret(req)) {
+    const guard = await requireOperator();
+    if ("response" in guard) return guard.response;
+  }
 
   const missingProposal = await db
     .select()

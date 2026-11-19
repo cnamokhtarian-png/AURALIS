@@ -17,7 +17,7 @@ import { resolveChannelApiBase, resolveChannelToken } from "./settings";
 export type SendResult =
   | { ok: true; mode: "api"; externalId: string | null; info?: string }
   | { ok: false; mode: "manual"; shareUrl: string | null; info: string }
-  | { ok: false; mode: "api" | "webhook"; error: string };
+  | { ok: false; mode: "api" | "webhook"; error: string; uncertain?: boolean };
 
 export type SendTarget = {
   channel: string;
@@ -50,7 +50,7 @@ async function botCall(
   token: string,
   method: string,
   payload: Record<string, unknown>,
-): Promise<{ ok: true; result: { message_id?: number } } | { ok: false; error: string }> {
+): Promise<{ ok: true; result: { message_id?: number } } | { ok: false; error: string; uncertain?: boolean }> {
   try {
     const res = await fetch(`${base}/bot${token}/${method}`, {
       method: "POST",
@@ -65,11 +65,19 @@ async function botCall(
       description?: string;
     };
     if (!res.ok || !data.ok) {
-      return { ok: false, error: data.description || `HTTP ${res.status}` };
+      return {
+        ok: false,
+        error: data.description || `HTTP ${res.status}`,
+        uncertain: res.status >= 500,
+      };
     }
     return { ok: true, result: data.result ?? {} };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "خطای شبکه" };
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "خطای شبکه",
+      uncertain: true,
+    };
   }
 }
 
@@ -112,7 +120,7 @@ export async function sendChannelMessage(target: SendTarget): Promise<SendResult
     disable_web_page_preview: true,
   });
 
-  if (!res.ok) return { ok: false, mode: "api", error: res.error };
+  if (!res.ok) return { ok: false, mode: "api", error: res.error, uncertain: res.uncertain };
   return {
     ok: true,
     mode: "api",
@@ -162,7 +170,7 @@ export async function sendChannelPhoto(target: PhotoTarget): Promise<SendResult>
     disable_notification: target.silent ?? true,
   });
 
-  if (!res.ok) return { ok: false, mode: "api", error: res.error };
+  if (!res.ok) return { ok: false, mode: "api", error: res.error, uncertain: res.uncertain };
   return {
     ok: true,
     mode: "api",

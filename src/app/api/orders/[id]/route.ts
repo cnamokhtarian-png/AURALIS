@@ -79,7 +79,11 @@ export async function PATCH(req: Request, { params }: Ctx) {
       if (!order.shippedAt) update.shippedAt = now;
       if (!order.paidAt) update.paidAt = now;
     }
-    if (body.status === "delivered" && !order.deliveredAt) update.deliveredAt = now;
+    if (body.status === "delivered") {
+      if (!order.paidAt) update.paidAt = now;
+      if (!order.shippedAt) update.shippedAt = now;
+      if (!order.deliveredAt) update.deliveredAt = now;
+    }
     if (body.status === "awaiting_payment") {
       // Receipt rejected – allow re-upload
       update.receiptSubmittedAt = null;

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, asc, count, desc, eq, gte, inArray, lte, sum } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, lte, or, sql, sum } from "drizzle-orm";
 import { AlertTriangle, ArrowLeft, Banknote, Clock, GalleryHorizontalEnd, MessageCircle, Package, ShoppingBag, Users } from "lucide-react";
 import { db } from "@/db";
 import { orders, products, users } from "@/db/schema";
@@ -15,14 +15,21 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
   const admin = await requireAdmin();
-  const monthAgo = new Date(Date.now() - 30 * 86400000);
 
   const [revenue, monthRevenue, statusCounts, customers, recentOrders, lowStock, convs, [{ value: productCount }]] = await Promise.all([
     db.select({ value: sum(orders.total) }).from(orders).where(inArray(orders.status, ["paid", "shipped", "delivered"])),
     db
       .select({ value: sum(orders.total) })
       .from(orders)
-      .where(and(inArray(orders.status, ["paid", "shipped", "delivered"]), gte(orders.createdAt, monthAgo))),
+      .where(
+        and(
+          inArray(orders.status, ["paid", "shipped", "delivered"]),
+          or(
+            sql`${orders.paidAt} >= now() - interval '30 days'`,
+            and(isNull(orders.paidAt), sql`${orders.createdAt} >= now() - interval '30 days'`),
+          ),
+        ),
+      ),
     db.select({ status: orders.status, value: count() }).from(orders).groupBy(orders.status),
     db.select({ value: count() }).from(users).where(eq(users.role, "customer")),
     db.query.orders.findMany({ orderBy: [desc(orders.createdAt)], limit: 6, with: { items: true, user: { columns: { name: true } } } }),

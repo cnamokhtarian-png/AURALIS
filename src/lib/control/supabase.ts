@@ -118,7 +118,7 @@ export async function remoteStatus(): Promise<RemoteStatus> {
       reachable: !/fetch failed|ENOTFOUND|getaddrinfo/i.test(error.message),
       error: error.message,
       hint: missingTable
-        ? "جدول‌ها در این پروژه ساخته نشده‌اند: فایل supabase/migrations/0004_control_center.sql را اجرا کنید."
+        ? "جدول‌های مرکز کنترل در پروژهٔ Supabase پیدا نشدند. پیش از اجرای SQL، از درست‌بودن پروژه و تطبیق schema و تاریخچهٔ migration همان محیط مطمئن شوید؛ برای production فایل‌ها را مستقیم اجرا نکنید."
         : rls
           ? "RLS جلوی کلید عمومی را گرفته؛ برای خواندن/نوشتن سروری SUPABASE_SERVICE_ROLE_KEY را تنظیم کنید."
           : "اتصال برقرار نشد؛ آدرس پروژه و کلید را بررسی کنید.",

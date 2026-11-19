@@ -6,7 +6,7 @@
  *
  *   TELEGRAM_BOT_TOKEN        — from @BotFather
  *   TELEGRAM_CHAT_ID          — your numeric id (the bot can discover it: see /api/telegram/setup)
- *   TELEGRAM_WEBHOOK_SECRET   — optional shared secret, verified in the webhook route
+ *   TELEGRAM_WEBHOOK_SECRET   — shared webhook secret; generated on setup if absent
  *   APP_URL / NEXT_PUBLIC_APP_URL — public URL of this deployment (for links)
  */
 
@@ -175,7 +175,7 @@ export type TelegramUpdate = {
     id: string;
     data?: string;
     from: { id: number; first_name?: string };
-    message?: { message_id: number; chat: { id: number }; text?: string };
+    message?: { message_id: number; chat: { id: number; type?: string }; text?: string };
   };
 };
 

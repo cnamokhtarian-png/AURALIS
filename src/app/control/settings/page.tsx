@@ -59,7 +59,7 @@ export default async function ControlSettingsPage() {
         <div>
           <h1 className="text-xl font-extrabold text-white">تنظیمات سیستم</h1>
           <p className="mt-1 text-[12px] text-[#8ba0b8]">
-            توکن ربات، اطلاعات Supabase و آدرس کیف پول تتر را همین‌جا وارد کنید؛ ثبت وب‌هوک با یک کلیک انجام می‌شود.
+            توکن ربات، کلید مخفی وب‌هوک، اطلاعات Supabase و آدرس کیف پول تتر را از همین‌جا مدیریت کنید.
           </p>
         </div>
         <span className="cc-chip">
@@ -72,8 +72,8 @@ export default async function ControlSettingsPage() {
       <Panel title="راهنمای سریع" subtitle="سه قدم تا فعال شدن کامل">
         <ol className="space-y-3 text-[11px] leading-6 text-[#8ba0b8]">
           <li>۱. توکن ربات تلگرام و شناسه چت را وارد و «ذخیره تنظیمات» را بزنید (توکن خودکار تست می‌شود).</li>
-          <li>۲. «ثبت خودکار وب‌هوک» را بزنید تا تلگرام پیام‌ها و دکمه‌های تایید را به همین سایت بفرستد.</li>
-          <li>۳. «پیام آزمایشی» را بزنید؛ اگر پیام رسید، سیستم آماده است — سپس اولین پروژه را اضافه کنید.</li>
+          <li>۲. سپس «ثبت خودکار وب‌هوک» را بزنید؛ اگر کلید مخفی وارد نکرده‌اید، کلید تصادفی امن ساخته می‌شود تا فقط درخواست‌های تلگرام پذیرفته شوند.</li>
+          <li>۳. «پیام آزمایشی» را بزنید؛ پس از اتصال می‌توانید از مرکز کنترل پروژه‌ها یا داشبورد ایجنت فروشگاه استفاده کنید.</li>
         </ol>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           <Link href="/control" className="cc-btn cc-btn-ghost">

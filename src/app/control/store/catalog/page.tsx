@@ -67,10 +67,9 @@ export default async function CataloguePage() {
         <div className="flex items-start gap-2 rounded-2xl border border-rose-400/25 bg-rose-400/[0.06] px-4 py-3 text-[11px] leading-6 text-rose-200">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           <div>
-            جدول‌های این بخش ساخته نشده‌اند. فایل{" "}
-            <code className="rounded bg-black/30 px-1">supabase/migrations/0007_product_broadcast.sql</code>{" "}
-            (یا <code className="rounded bg-black/30 px-1">supabase/all-in-one.sql</code>) را یک‌بار در
-            Supabase اجرا کنید.
+            جدول یا ستون لازم پیدا نشد، یا نسخهٔ schema هم‌خوان نیست. اگر دیتابیس موجود یا production است،
+            migration را مستقیم اجرا نکنید؛ ابتدا schema و تاریخچهٔ migration را تطبیق دهید و فقط نسخهٔ تأییدشده را
+            اعمال کنید. راهنما: <code className="rounded bg-black/30 px-1">docs/STORE-AGENT-SETUP.md</code>.
             <p className="mt-1 text-rose-300/70">{setupError}</p>
           </div>
         </div>

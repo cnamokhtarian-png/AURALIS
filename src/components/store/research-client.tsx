@@ -31,7 +31,7 @@ export function ResearchRunner() {
       const res = await fetch("/api/control/store/research", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "run", kind, useSearch, prompt, log: true }),
+        body: JSON.stringify({ action: "run", kind, useSearch, prompt }),
       });
       const data = (await res.json()) as { info?: string; error?: string; report?: { id: number } };
       if (!res.ok || data.error) {
@@ -41,6 +41,8 @@ export function ResearchRunner() {
       toast(data.info ?? "گزارش ساخته شد", "success");
       startTransition(() => router.push(data.report?.id ? `/control/store/research?report=${data.report.id}` : "/control/store/research"));
       startTransition(() => router.refresh());
+    } catch {
+      toast("ارتباط با سرور برقرار نشد", "error");
     } finally {
       setBusy(false);
     }

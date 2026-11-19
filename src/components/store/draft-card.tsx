@@ -28,6 +28,7 @@ export type DraftCardData = {
   score: number;
   body: string;
   status: string;
+  manualDispatch: boolean;
   createdAt: string;
   scheduledFor?: string | null;
   shareUrl?: string | null;
@@ -100,7 +101,7 @@ export function DraftCard({ data, compact }: { data: DraftCardData; compact?: bo
     }
   }
 
-  const isManual = data.status === "queued" || data.status === "manual";
+  const isManual = data.manualDispatch || data.status === "manual";
 
   return (
     <article className={cn("cc-soft rounded-2xl border border-[#1c2a3d] p-4", compact && "p-3")}>

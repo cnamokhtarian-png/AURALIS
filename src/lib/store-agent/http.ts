@@ -1,5 +1,6 @@
 import { bad } from "@/lib/control/api";
 import { loadSettings, SETTING_KEYS } from "@/lib/control/settings";
+import { secretEquals } from "@/lib/control/security";
 
 /** Shared helpers for the Store Agent API routes. */
 
@@ -7,7 +8,7 @@ export function storeApiError(err: unknown) {
   const message = err instanceof Error ? err.message : "خطای نامشخص";
   if (/relation .* does not exist|column .* does not exist|undefined_table/i.test(message)) {
     return bad(
-      "جدول‌های ایجنت فروشگاه ساخته نشده‌اند. فایل supabase/migrations/0006_store_agent.sql (یا all-in-one.sql) را یک‌بار در Supabase اجرا کنید.",
+      "جدول یا ستون لازم برای ایجنت فروشگاه پیدا نشد یا نسخهٔ schema ناسازگار است. برای دیتابیس موجود/production، migration یا all-in-one.sql را مستقیم اجرا نکنید؛ ابتدا schema و تاریخچهٔ migration همان محیط را تطبیق دهید و فقط migration تأییدشده را اعمال کنید. راهنما: docs/STORE-AGENT-SETUP.md.",
       409,
     );
   }
@@ -35,26 +36,39 @@ export function toBool(value: unknown, fallback = false): boolean {
   return fallback;
 }
 
+function configuredMachineSecrets(storedStoreSecret: string | undefined) {
+  return [...new Set([
+    storedStoreSecret,
+    process.env.STORE_AGENT_WEBHOOK_SECRET?.trim(),
+    process.env.CRON_SECRET?.trim(),
+  ].filter((secret): secret is string => Boolean(secret)))];
+}
+
 /** Secret for machine callers (cron, inbound bridges). */
 export async function machineSecret() {
+  const envSecret = configuredMachineSecrets(undefined)[0];
+  if (envSecret) return envSecret;
   const snapshot = await loadSettings();
-  return (
-    snapshot.stored[SETTING_KEYS.storeWebhookSecret] ||
-    process.env.STORE_AGENT_WEBHOOK_SECRET ||
-    process.env.CRON_SECRET ||
-    process.env.TELEGRAM_WEBHOOK_SECRET ||
-    ""
-  );
+  return configuredMachineSecrets(snapshot.stored[SETTING_KEYS.storeWebhookSecret])[0] ?? "";
 }
 
 export async function machineAuthorized(req: Request) {
-  const expected = await machineSecret();
-  if (!expected) return false;
-  const header =
-    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
-    req.headers.get("x-store-secret") ??
-    "";
-  const url = new URL(req.url);
-  const query = url.searchParams.get("secret") ?? "";
-  return header === expected || query === expected;
+  const authorization = req.headers.get("authorization") ?? "";
+  const bearer = /^Bearer\s+(.+)$/i.exec(authorization)?.[1]?.trim() ?? "";
+  const storeHeader = req.headers.get("x-store-secret") ?? "";
+  const query = new URL(req.url).searchParams.get("secret") ?? "";
+  const candidates = [bearer, storeHeader, query];
+
+  let authorized = false;
+  for (const secret of configuredMachineSecrets(undefined)) {
+    for (const candidate of candidates) authorized = secretEquals(candidate, secret) || authorized;
+  }
+  if (authorized) return true;
+
+  // Environment secrets remain usable even if the settings table is unavailable.
+  const snapshot = await loadSettings();
+  for (const secret of configuredMachineSecrets(snapshot.stored[SETTING_KEYS.storeWebhookSecret])) {
+    for (const candidate of candidates) authorized = secretEquals(candidate, secret) || authorized;
+  }
+  return authorized;
 }

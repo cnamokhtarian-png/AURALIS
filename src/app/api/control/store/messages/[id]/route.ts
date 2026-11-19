@@ -42,6 +42,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const body = (await readJson<Body>(req)) ?? {};
   const action = body.action ?? "update";
+  if (!["send", "force-send", "schedule", "manual-sent", "discard", "update"].includes(action)) {
+    return bad("اکشن پیام نامعتبر است.");
+  }
   try {
     if (action === "update") {
       if (!body.body?.trim()) return bad("متن پیام خالی است.");

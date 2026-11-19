@@ -1,14 +1,16 @@
 import {
   answerCallbackQuery,
+  appUrl,
   editMessageText,
+  escapeHtml,
   projectKeyboard,
   projectMessage,
   sendMessage,
   telegramCredentials,
-  telegramToken,
   type TelegramUpdate,
 } from "@/lib/control/telegram";
 import { loadSettings, SETTING_KEYS } from "@/lib/control/settings";
+import { secretEquals } from "@/lib/control/security";
 import {
   approveProject,
   completeProject,
@@ -40,20 +42,30 @@ const STATUS_FA: Record<string, string> = {
 const ack = (body: Record<string, unknown> = { ok: true }) => Response.json(body);
 
 export async function GET() {
+  const settings = await loadSettings();
+  const botConfigured = Boolean(settings.stored[SETTING_KEYS.telegramToken]);
+  const webhookSecure = Boolean(settings.stored[SETTING_KEYS.telegramWebhookSecret]);
   return Response.json({
     ok: true,
-    configured: Boolean(telegramToken()),
-    hint: "این آدرس را با متد POST به‌عنوان webhook ربات تنظیم کنید (یا از /api/telegram/setup استفاده کنید).",
+    configured: botConfigured && webhookSecure,
+    botConfigured,
+    webhookSecure,
+    hint: botConfigured && webhookSecure
+      ? "وب‌هوک آماده دریافت درخواست‌های احرازشده است."
+      : botConfigured
+        ? "پیش از استفاده، وب‌هوک را از تنظیمات مدیر دوباره ثبت کنید تا کلید مخفی ساخته شود."
+        : "توکن ربات تنظیم نشده است.",
   });
 }
 
 export async function POST(req: Request) {
   const stored = await loadSettings();
   const secret = stored.stored[SETTING_KEYS.telegramWebhookSecret];
-  if (secret) {
-    const header = req.headers.get("x-telegram-bot-api-secret-token");
-    if (header !== secret) return Response.json({ ok: false }, { status: 401 });
+  if (!secret) {
+    return Response.json({ ok: false, error: "webhook_secret_not_configured" }, { status: 503 });
   }
+  const header = req.headers.get("x-telegram-bot-api-secret-token");
+  if (!secretEquals(header ?? "", secret)) return Response.json({ ok: false }, { status: 401 });
 
   let update: TelegramUpdate;
   try {
@@ -64,24 +76,43 @@ export async function POST(req: Request) {
 
   try {
     const owner = (await telegramCredentials()).chatId;
-    const incomingChat = update.message?.chat.id ?? update.callback_query?.message?.chat.id;
-
-    // A stranger is a *customer*: feed the Store Agent instead of ignoring them.
-    if (owner && incomingChat && String(incomingChat) !== owner) {
-      if (update.message) await handleCustomerMessage(update.message);
-      return ack();
-    }
 
     if (update.callback_query) {
-      await handleCallback(update.callback_query);
+      const callback = update.callback_query;
+      const chat = callback.message?.chat;
+      const isOwnerPrivateChat = Boolean(
+        owner &&
+          chat?.type === "private" &&
+          String(chat.id) === owner &&
+          String(callback.from.id) === owner,
+      );
+      if (!isOwnerPrivateChat) {
+        await answerCallbackQuery(callback.id, "این دکمه فقط برای اپراتور فروشگاه است.", true);
+        return ack();
+      }
+      await handleCallback(callback);
       return ack();
     }
 
-    if (update.message?.text) {
-      await handleMessage(update.message);
+    if (!update.message) return ack();
+    const message = update.message;
+    // Store-agent conversations and operator controls are private-chat only;
+    // group/channel updates are ignored instead of treated as customer DMs.
+    if (message.chat.type !== "private" || !message.from) return ack();
+    // Restrict operator commands to the owner's private chat. Matching a group
+    // chat id alone would let every group member operate the bot.
+    const isOwnerPrivateChat = Boolean(
+      owner &&
+        message.chat.type === "private" &&
+        String(message.chat.id) === owner &&
+        String(message.from?.id ?? "") === owner,
+    );
+    if (!isOwnerPrivateChat) {
+      await handleCustomerMessage(message);
       return ack();
     }
 
+    if (message.text) await handleMessage(message);
     return ack();
   } catch (err) {
     console.error("[telegram-webhook]", err);
@@ -276,6 +307,12 @@ async function handleMessage(message: NonNullable<TelegramUpdate["message"]>) {
 async function handleCustomerMessage(message: NonNullable<TelegramUpdate["message"]>) {
   const text = (message.text ?? "").trim();
   if (!text) return;
+  if (/^\/(start|help)\b/.test(text)) {
+    await sendMessage("سلام، به آورالیس خوش آمدید. برای دریافت راهنمای خرید یا پرسش درباره محصولات، همین‌جا پیام خود را بنویسید.", {
+      chatId: message.chat.id,
+    });
+    return;
+  }
   try {
     const { ingestInbound } = await import("@/lib/store-agent/messages");
     await ingestInbound({
@@ -285,6 +322,7 @@ async function handleCustomerMessage(message: NonNullable<TelegramUpdate["messag
       handle: message.from?.username,
       text,
       source: "telegram",
+      sourceMessageId: `telegram:${message.chat.id}:${message.message_id}`,
     });
   } catch (err) {
     console.error("[telegram-webhook] store agent inbound failed", err);
@@ -304,14 +342,22 @@ async function handleStoreCallback(query: NonNullable<TelegramUpdate["callback_q
 
   const rows = await db.select().from(storeMessages).where(eq(storeMessages.id, id)).limit(1);
   const message = rows[0];
-  if (!message) {
-    await answerCallbackQuery(query.id, "پیام پیدا نشد.", true);
+  if (!message || message.direction !== "outbound") {
+    await answerCallbackQuery(query.id, "پیش‌نویس پیدا نشد.", true);
     return;
   }
   const lead = await getLead(message.leadId);
 
   if (action === "sno") {
-    await discardMessage(id);
+    if (message.status !== "draft") {
+      await answerCallbackQuery(query.id, "این پیش‌نویس دیگر قابل رد نیست.", true);
+      return;
+    }
+    const discarded = await discardMessage(id);
+    if (!discarded) {
+      await answerCallbackQuery(query.id, "این پیش‌نویس در حال پردازش است یا دیگر قابل حذف نیست.", true);
+      return;
+    }
     await answerCallbackQuery(query.id, "❌ پیش‌نویس حذف شد");
     if (notificationId) {
       await editMessageText(notificationId, "❌ <b>پیش‌نویس حذف شد</b>\nاین پیام برای مشتری ارسال نشد.");
@@ -320,15 +366,15 @@ async function handleStoreCallback(query: NonNullable<TelegramUpdate["callback_q
   }
 
   if (action === "sview") {
-    const base = (await telegramCredentials()).chatId ? process.env.APP_URL ?? "" : "";
+    const base = await appUrl();
     const text = [
-      `👤 <b>${lead?.name || lead?.handle || "مشتری"}</b>`,
-      `📡 کانال: ${message.channel}`,
+      `👤 <b>${escapeHtml(lead?.name || lead?.handle || "مشتری")}</b>`,
+      `📡 کانال: ${escapeHtml(message.channel)}`,
       `📊 امتیاز: ${lead?.score ?? 0}/100`,
-      lead?.need ? `📝 نیاز: ${lead.need.slice(0, 400)}` : "",
+      lead?.need ? `📝 نیاز: ${escapeHtml(lead.need.slice(0, 400))}` : "",
       "",
       "آخرین پیام‌ها از داشبورد قابل مشاهده و ویرایش هستند.",
-      base ? `${base}/control/store/leads/${message.leadId}` : "",
+      base ? `${escapeHtml(base)}/control/store/leads/${message.leadId}` : "",
     ]
       .filter(Boolean)
       .join("\n");
@@ -337,18 +383,23 @@ async function handleStoreCallback(query: NonNullable<TelegramUpdate["callback_q
     return;
   }
 
+  if (action !== "sok") {
+    await answerCallbackQuery(query.id, "اکشن نامعتبر است.");
+    return;
+  }
+
   // sok → approve & send (respects rate limits, consent, opt-out)
   const outcome = await sendMessageById(id);
-  if (outcome.status === "sent") {
-    await answerCallbackQuery(query.id, "✅ ارسال شد");
+  if (outcome.status === "sent" || outcome.status === "already") {
+    await answerCallbackQuery(query.id, outcome.status === "already" ? "این پیام قبلاً ارسال شده است." : "✅ ارسال شد");
     if (notificationId) {
       await editMessageText(
         notificationId,
         [
           "✅ <b>تایید و ارسال شد</b>",
-          `👤 ${lead?.name || lead?.handle || "مشتری"} · ${message.channel}`,
+          `👤 ${escapeHtml(lead?.name || lead?.handle || "مشتری")} · ${escapeHtml(message.channel)}`,
           "",
-          message.body.slice(0, 900),
+          escapeHtml(message.body.slice(0, 900)),
         ].join("\n"),
       );
     }
@@ -389,6 +440,7 @@ async function editStoreDraftFromTelegram(text: string, replyToMessageId?: numbe
     .where(
       and(
         eq(storeMessages.telegramNotifyMessageId, replyToMessageId),
+        eq(storeMessages.direction, "outbound"),
         eq(storeMessages.status, "draft"),
       ),
     )

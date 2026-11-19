@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
 import type { SafeUser } from "@/db/schema";
+import { secretEquals } from "./security";
 
 export async function readJson<T = Record<string, unknown>>(req: Request): Promise<T | null> {
   try {
@@ -27,9 +28,13 @@ export async function requireOperator(): Promise<{ user: SafeUser } | { response
 
 /** Shared-secret check for endpoints hit by machines (webhooks / cron). */
 export function checkSecret(req: Request, envName = "CRON_SECRET") {
-  const expected = process.env[envName];
-  if (!expected) return true;
-  const header = req.headers.get("authorization") ?? "";
-  const url = new URL(req.url);
-  return header === `Bearer ${expected}` || url.searchParams.get("secret") === expected;
+  const expected = process.env[envName]?.trim();
+  if (!expected) return false;
+
+  const authorization = req.headers.get("authorization") ?? "";
+  const bearer = /^Bearer\s+(.+)$/i.exec(authorization)?.[1]?.trim() ?? "";
+  const query = new URL(req.url).searchParams.get("secret") ?? "";
+  let valid = false;
+  for (const candidate of [bearer, query]) valid = secretEquals(candidate, expected) || valid;
+  return valid;
 }

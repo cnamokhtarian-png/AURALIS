@@ -93,7 +93,7 @@ export default async function StoreSettingsPage() {
               <span>
                 <b className="text-white">ربات تلگرام</b> (همان ربات مرکز کنترل کافی است) + شناسه چت شما در{" "}
                 <Link href="/control/settings" className="text-emerald-300 underline">
-                  تنظیمات اصلی
+                  تنظیمات اتصال تلگرام
                 </Link>
                 .
               </span>

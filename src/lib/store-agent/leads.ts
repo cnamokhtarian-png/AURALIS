@@ -101,7 +101,7 @@ export type CreateLeadResult = { lead: Lead; created: boolean; merged: boolean }
  */
 export async function upsertLead(
   input: LeadInput,
-  options: { event?: { kind: string; detail?: string } } = {},
+  options: { event?: { kind: string; detail?: string }; inbound?: boolean } = {},
 ): Promise<CreateLeadResult> {
   const channel = (input.channel ?? "manual").trim() || "manual";
   const externalId = clean(input.externalId);
@@ -149,7 +149,7 @@ export async function upsertLead(
         consent: existing.consent || Boolean(input.consent),
         score: Math.max(existing.score, scored.score),
         grade: gradeFor(Math.max(existing.score, scored.score)),
-        lastInboundAt: new Date(),
+        ...(options.inbound ? { lastInboundAt: new Date() } : {}),
         updatedAt: new Date(),
         tags: [...new Set([...(existing.tags ?? []), ...(input.tags ?? [])])].slice(0, 12),
       })
@@ -191,7 +191,7 @@ export async function upsertLead(
     estimatedValue: Math.max(0, Math.round(input.estimatedValue ?? 0)),
     tags: [...new Set((input.tags ?? []).map((t) => t.trim()).filter(Boolean))].slice(0, 12),
     notes: clean(input.notes),
-    lastInboundAt: new Date(),
+    lastInboundAt: options.inbound ? new Date() : null,
   };
 
   const [created] = await db.insert(leads).values(row).returning();
@@ -472,6 +472,7 @@ export async function findOrCreateInboundLead(params: {
   externalId: string;
   name?: string;
   handle?: string;
+  phone?: string;
   text: string;
   source?: LeadSource;
 }) {
@@ -482,6 +483,9 @@ export async function findOrCreateInboundLead(params: {
     .limit(1);
 
   if (existing[0]) {
+    if (params.phone && !existing[0].phone) {
+      await db.update(leads).set({ phone: params.phone, updatedAt: new Date() }).where(eq(leads.id, existing[0].id));
+    }
     await markInbound(existing[0].id, params.text);
     const fresh = (await getLead(existing[0].id))!;
     return { lead: fresh, created: false };
@@ -491,11 +495,12 @@ export async function findOrCreateInboundLead(params: {
     name: params.name,
     handle: params.handle,
     externalId: params.externalId,
+    phone: params.phone,
     channel: params.channel,
     source: params.source ?? (params.channel as LeadSource),
     need: params.text.slice(0, 1000),
     consent: true,
-  });
+  }, { inbound: true });
   return { lead: res.lead, created: true };
 }
 
