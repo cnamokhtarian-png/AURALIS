@@ -6,8 +6,8 @@ import { requireAdmin } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: { default: "مرکز کنترل ایجنت", template: "%s | مرکز کنترل" },
-  description: "داشبورد مدیریت پروژه‌های فریلنسری، پیشنهادهای هوشمند، چت کارفرما و کیف پول USDT",
+  title: { default: "مرکز کنترل AURALIS", template: "%s | AURALIS" },
+  description: "مرکز کنترل فروشگاه، ایجنت‌ها، پروژه‌ها و ابزارهای AURALIS",
 };
 
 export default async function ControlLayout({ children }: { children: ReactNode }) {

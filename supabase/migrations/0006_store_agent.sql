@@ -1,6 +1,6 @@
 -- AURALIS — Store Agent (sales · marketing · market research) schema.
--- Apply once (Supabase SQL editor, `supabase db push`, or `npm run db:push`).
--- Safe to run twice.
+-- Use only for a fresh database or as part of a reviewed migration plan.
+-- IF NOT EXISTS does not verify existing object definitions; do not replay blindly on existing/production databases.
 
 -- ── enums ──────────────────────────────────────────────────────────────────
 do $$ begin

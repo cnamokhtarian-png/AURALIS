@@ -51,7 +51,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       const generated = await generateCampaignPosts(id, body.channels);
       if (!generated.ok) return bad(generated.error);
       if (generated.posts.length) await notifyPosts(generated.posts);
-      return ok({ posts: generated.posts, engine: generated.engine, info: "پست‌ها ساخته شدند." });
+      return ok({
+        posts: generated.posts,
+        engine: generated.engine,
+        skippedChannels: generated.skippedChannels,
+        info: generated.posts.length
+          ? `${generated.posts.length} پیش‌نویس ساخته شد.`
+          : "برای کانال‌های انتخاب‌شده پیش‌نویس موجود است؛ از ساخت محتوای تکراری جلوگیری شد.",
+      });
     }
 
     const campaign = await updateCampaign(id, {

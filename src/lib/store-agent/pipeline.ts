@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   campaigns,
@@ -15,6 +15,8 @@ import { getAgentSettings } from "./settings";
 import { dueFollowUps, scheduleFollowUp } from "./leads";
 import { generateCampaignPosts, marketingStats, notifyPosts, processDuePosts } from "./marketing";
 import { researchFreshness, runResearch } from "./research";
+import { getStoreOrderStats } from "./sales-stats";
+import { startOfDay } from "./rate-limit";
 
 /**
  * The orchestrator. One function per agent + a combined run used by the cron.
@@ -67,6 +69,9 @@ export type SalesRunStats = {
   draftsCreated: number;
   followUpsRescheduled: number;
   queueProcessed: number;
+  queueSent: number;
+  queueQueued: number;
+  queueFailed: number;
   skipped: string[];
 };
 
@@ -77,6 +82,9 @@ export async function runSalesAgent(options: { trigger?: string; limit?: number 
     draftsCreated: 0,
     followUpsRescheduled: 0,
     queueProcessed: 0,
+    queueSent: 0,
+    queueQueued: 0,
+    queueFailed: 0,
     skipped: [],
   };
 
@@ -113,6 +121,9 @@ export async function runSalesAgent(options: { trigger?: string; limit?: number 
 
     const queue = await processDueQueue(10);
     stats.queueProcessed = queue.length;
+    stats.queueSent = queue.filter((item) => item.status === "sent" || item.status === "already").length;
+    stats.queueQueued = queue.filter((item) => item.status === "queued" || item.status === "manual").length;
+    stats.queueFailed = queue.filter((item) => item.status === "failed" || item.status === "blocked").length;
 
     await finishRun(run.id, "done", stats);
     return { ok: true as const, runId: run.id, stats };
@@ -131,6 +142,7 @@ export type MarketingRunStats = {
   engine: string | null;
   published: number;
   queued: number;
+  failed: number;
   note: string;
 };
 
@@ -144,6 +156,7 @@ export async function runMarketingAgent(
     engine: null,
     published: 0,
     queued: 0,
+    failed: 0,
     note: "",
   };
 
@@ -193,11 +206,15 @@ export async function runMarketingAgent(
 
     stats.postsCreated = result.posts.length;
     stats.engine = result.engine ?? null;
+    if (!result.posts.length && result.skippedChannels.length) {
+      stats.note = "برای کانال‌های کمپین پیش‌نویس موجود است؛ از تکرار ناخواسته جلوگیری شد.";
+    }
     if (result.posts.length) await notifyPosts(result.posts);
 
     const published = await processDuePosts(6);
-    stats.published = published.filter((row) => row.status === "sent").length;
-    stats.queued = published.filter((row) => row.status !== "sent").length;
+    stats.published = published.filter((row) => row.status === "sent" || row.status === "already").length;
+    stats.queued = published.filter((row) => row.status === "queued" || row.status === "manual").length;
+    stats.failed = published.filter((row) => row.status === "failed" || row.status === "blocked").length;
 
     await finishRun(run.id, "done", stats);
     return { ok: true as const, runId: run.id, stats, posts: result.posts };
@@ -288,17 +305,16 @@ export async function runOrchestrator(options: { trigger?: string; digest?: bool
     result.sales = sales.ok ? "ran" : "failed";
 
     if (settings.notifyTelegram && options.digest !== false) {
-      const [stats, mkt, todayLeads, wonToday] = await Promise.all([
+      const now = new Date();
+      const todayStart = startOfDay(now, settings.timezone || "Asia/Tehran");
+      const [stats, mkt, ordersToday, todayLeads] = await Promise.all([
         messageStats(),
         marketingStats(),
+        getStoreOrderStats(settings.timezone, now),
         db
           .select({ count: sql<number>`count(*)::int` })
           .from(leads)
-          .where(sql`${leads.createdAt} >= now() - interval '1 day'`),
-        db
-          .select({ count: sql<number>`count(*)::int`, value: sql<number>`coalesce(sum(${leads.estimatedValue}),0)::int` })
-          .from(leads)
-          .where(and(eq(leads.status, "won"), sql`${leads.updatedAt} >= now() - interval '1 day'`)),
+          .where(and(gte(leads.createdAt, todayStart), lte(leads.createdAt, now))),
       ]);
       const due = await dueFollowUps(50);
       const topInsight = await latestInsight();
@@ -308,12 +324,23 @@ export async function runOrchestrator(options: { trigger?: string; digest?: bool
           drafts: stats.drafts + mkt.drafts,
           dueFollowUps: due.length,
           sent: stats.sentToday,
-          won: Number(wonToday[0]?.count ?? 0),
-          revenue: Number(wonToday[0]?.value ?? 0),
+          paidOrdersToday: ordersToday.paidOrdersToday,
+          revenueToday: ordersToday.revenueToday,
           topInsight: topInsight ?? undefined,
         }),
       );
       result.digestSent = sent.ok;
+    }
+
+    const failedAgents = [
+      result.research === "failed" ? "تحقیق بازار" : null,
+      result.marketing === "failed" ? "بازاریابی" : null,
+      result.sales === "failed" ? "فروش" : null,
+    ].filter((name): name is string => Boolean(name));
+    if (failedAgents.length) {
+      const error = `اجرای ناموفق: ${failedAgents.join("، ")}`;
+      await finishRun(run.id, "failed", { ...result, failedAgents }, error);
+      return { ok: false as const, runId: run.id, error, result };
     }
 
     await finishRun(run.id, "done", { ...result });

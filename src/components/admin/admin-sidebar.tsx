@@ -32,11 +32,17 @@ export function AdminShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  const open = openPath === pathname;
 
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    const closeOnHistoryNavigation = () => setOpenPath(null);
+    window.addEventListener("popstate", closeOnHistoryNavigation);
+    return () => window.removeEventListener("popstate", closeOnHistoryNavigation);
+  }, []);
 
   async function logout() {
+    setOpenPath(null);
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
@@ -51,6 +57,7 @@ export function AdminShell({
           <Link
             key={l.href}
             href={l.href}
+            onClick={() => setOpenPath(null)}
             className={cn(
               "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
               active ? "bg-gold/15 font-semibold text-gold-light" : "text-pearl/65 hover:bg-pearl/5 hover:text-pearl",
@@ -68,7 +75,7 @@ export function AdminShell({
   const sidebarInner = (
     <>
       <div className="px-5 pt-6 pb-5">
-        <Link href="/admin" className="flex items-center gap-2.5">
+        <Link href="/admin" onClick={() => setOpenPath(null)} className="flex items-center gap-2.5">
           <span className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-gold-light via-gold to-gold-dark">
             <span className="size-3.5 rounded-full bg-ink" />
           </span>
@@ -80,7 +87,7 @@ export function AdminShell({
       </div>
       {nav}
       <div className="mt-auto space-y-1 border-t border-pearl/10 p-3">
-        <Link href="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-pearl/65 hover:bg-pearl/5 hover:text-pearl">
+        <Link href="/" onClick={() => setOpenPath(null)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-pearl/65 hover:bg-pearl/5 hover:text-pearl">
           <Store className="size-4" /> مشاهده فروشگاه
         </Link>
         <button onClick={logout} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-rose-300 hover:bg-rose-500/10">
@@ -103,9 +110,9 @@ export function AdminShell({
 
       {open && (
         <div className="fixed inset-0 z-[70] lg:hidden">
-          <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm" onClick={() => setOpenPath(null)} />
           <aside className="dark-sheen absolute inset-y-0 right-0 flex w-72 flex-col animate-fade-up">
-            <button onClick={() => setOpen(false)} className="absolute top-4 left-4 rounded-full p-2 text-pearl/70 hover:bg-pearl/10" aria-label="بستن">
+            <button onClick={() => setOpenPath(null)} className="absolute top-4 left-4 rounded-full p-2 text-pearl/70 hover:bg-pearl/10" aria-label="بستن">
               <X className="size-5" />
             </button>
             {sidebarInner}
@@ -116,7 +123,7 @@ export function AdminShell({
       <div className="flex min-h-screen flex-1 flex-col lg:mr-64">
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-gold/15 bg-ivory/85 px-4 backdrop-blur lg:px-8">
           <div className="flex items-center gap-3">
-            <button onClick={() => setOpen(true)} className="rounded-full p-2 hover:bg-cream lg:hidden" aria-label="منو">
+            <button onClick={() => setOpenPath(pathname)} className="rounded-full p-2 hover:bg-cream lg:hidden" aria-label="منو">
               <Menu className="size-5" />
             </button>
             <p className="text-sm font-semibold text-ink-soft">{LINKS.find((l) => "external" in l ? false : l.exact ? pathname === l.href : pathname.startsWith(l.href))?.label ?? "مدیریت"}</p>

@@ -1,6 +1,7 @@
 -- AURALIS — product catalogue broadcast (photo posts in the Telegram channel).
 -- One row per (product, channel) so re-running "publish all" never spams the
--- channel with duplicates. Safe to run twice.
+-- channel with duplicates. Use only on a fresh database or in a reviewed migration plan;
+-- IF NOT EXISTS does not verify existing object definitions.
 
 create table if not exists store_product_posts (
   id serial primary key,

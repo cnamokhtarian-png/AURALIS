@@ -1,6 +1,7 @@
 import { bad, ok, readJson, requireOperator } from "@/lib/control/api";
 import { machineAuthorized, machineSecret, storeApiError } from "@/lib/store-agent/http";
 import { ingestInbound } from "@/lib/store-agent/messages";
+import { CHANNEL_KEYS } from "@/lib/store-agent/constants";
 import type { LeadSource } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export async function GET() {
     ok: true,
     endpoint: "/api/control/store/inbound",
     auth: "?secret=STORE_AGENT_WEBHOOK_SECRET",
-    fields: ["channel", "externalId", "name", "handle", "text", "source"],
+    fields: ["channel", "externalId", "name", "handle", "phone", "text", "source", "sourceMessageId"],
     hint: "این آدرس را در فرم سایت یا پل اینستاگرام/ایتا/روبیکا ثبت کنید.",
   });
 }
@@ -38,6 +39,7 @@ type Payload = {
   message?: string;
   source?: string;
   phone?: string;
+  sourceMessageId?: string;
 };
 
 async function readPayload(req: Request): Promise<Payload> {
@@ -60,13 +62,26 @@ export async function POST(req: Request) {
 
   const url = new URL(req.url);
   const body = await readPayload(req).catch(() => ({} as Payload));
-  const channel = (url.searchParams.get("channel") || body.channel || "website").trim().toLowerCase();
-  const text = (body.text || body.message || "").trim();
-  if (!text) return bad("متن پیام لازم است.");
+  if (!body || typeof body !== "object" || Array.isArray(body)) return bad("بدنه درخواست معتبر نیست.");
+  const stringFields: Array<keyof Payload> = [
+    "channel", "externalId", "external_id", "name", "handle", "username", "text", "message", "source", "phone", "sourceMessageId",
+  ];
+  if (stringFields.some((field) => body[field] !== undefined && typeof body[field] !== "string")) {
+    return bad("فیلدهای متنی باید رشته باشند.");
+  }
+  const asText = (value: unknown) => (typeof value === "string" ? value : "");
+  const channel = (url.searchParams.get("channel") || asText(body.channel) || "website").trim().toLowerCase();
+  if (!CHANNEL_KEYS.includes(channel as (typeof CHANNEL_KEYS)[number])) return bad("کانال ورودی نامعتبر است.");
 
-  const externalId =
-    (body.externalId || body.external_id || body.handle || body.username || body.phone || "").trim() ||
-    `${channel}-${Date.now()}`;
+  const text = (asText(body.text) || asText(body.message)).trim();
+  if (!text) return bad("متن پیام لازم است.");
+  if (text.length > 4_000) return bad("متن پیام نباید بیشتر از ۴۰۰۰ نویسه باشد.");
+
+  const handle = (asText(body.handle) || asText(body.username)).trim().replace(/^@/, "").slice(0, 240);
+  const phone = asText(body.phone).trim();
+  const suppliedId = (asText(body.externalId) || asText(body.external_id)).trim();
+  const externalId = suppliedId || (handle ? `handle:${handle}` : phone ? `phone:${phone}` : "");
+  if (!externalId) return bad("برای جلوگیری از ثبت تکراری، externalId، آیدی یا شماره تماس لازم است.");
 
   const VALID_SOURCES: LeadSource[] = [
     "telegram",
@@ -80,17 +95,19 @@ export async function POST(req: Request) {
     "manual",
     "referral",
   ];
-  const requested = (body.source || channel) as LeadSource;
-  const source: LeadSource = VALID_SOURCES.includes(requested) ? requested : "website";
+  const requested = (asText(body.source) || channel) as LeadSource;
+  if (!VALID_SOURCES.includes(requested)) return bad("منبع سرنخ نامعتبر است.");
 
   try {
     const result = await ingestInbound({
       channel,
-      externalId,
-      name: body.name,
-      handle: body.handle || body.username,
+      externalId: externalId.slice(0, 240),
+      name: asText(body.name).slice(0, 250),
+      handle: handle || undefined,
+      phone: phone.slice(0, 80) || undefined,
       text,
-      source,
+      source: requested,
+      sourceMessageId: asText(body.sourceMessageId).slice(0, 240) || undefined,
     });
     return ok(
       {
@@ -100,13 +117,16 @@ export async function POST(req: Request) {
         draftId: result.draft?.id ?? null,
         autoSent: result.autoSent,
         optOut: result.optOut,
-        info: result.optOut
-          ? "درخواست توقف ثبت شد."
-          : result.autoSent
-            ? "پاسخ خودکار ارسال شد."
-            : "پیام ثبت و پیش‌نویس پاسخ آماده شد.",
+        duplicate: Boolean(result.duplicate),
+        info: result.duplicate
+          ? "این پیام قبلاً ثبت شده است."
+          : result.optOut
+            ? "درخواست توقف ثبت شد."
+            : result.autoSent
+              ? "پاسخ خودکار ارسال شد."
+              : "پیام ثبت و پیش‌نویس پاسخ آماده شد.",
       },
-      201,
+      result.duplicate ? 200 : 201,
     );
   } catch (err) {
     return storeApiError(err);

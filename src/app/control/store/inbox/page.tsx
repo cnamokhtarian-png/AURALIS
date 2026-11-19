@@ -38,6 +38,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
     score: row.lead.score,
     body: row.message.body,
     status: row.message.status,
+    manualDispatch: Boolean((row.message.meta as { manualDispatch?: boolean })?.manualDispatch),
     createdAt: row.message.createdAt.toISOString(),
     scheduledFor: row.message.scheduledFor?.toISOString() ?? null,
     shareUrl: shareUrlFor(row.message.channel, row.lead.handle),

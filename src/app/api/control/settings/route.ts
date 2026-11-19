@@ -5,9 +5,9 @@ import { bad, ok, readJson, requireOperator } from "@/lib/control/api";
 import { getWallet } from "@/lib/control/data";
 import {
   describeSettings,
+  ensureTelegramWebhookSecret,
   invalidateSettingsCache,
   isSecretKey,
-  loadSettings,
   saveSetting,
   SETTING_KEYS,
   type SettingKey,
@@ -169,6 +169,10 @@ export async function POST(req: Request) {
         errors.push("شناسه چت باید یک عدد باشد (مثلاً 7590237754).");
         continue;
       }
+      if (key === SETTING_KEYS.telegramWebhookSecret && !/^[A-Za-z0-9_-]{1,256}$/.test(clean)) {
+        errors.push("کلید مخفی تلگرام باید ۱ تا ۲۵۶ نویسه و فقط شامل حروف، عدد، خط تیره یا زیرخط باشد.");
+        continue;
+      }
       if (key === SETTING_KEYS.trc20Address) {
         if (!isValidTrc20(clean)) {
           errors.push("آدرس کیف پول TRC-20 معتبر نیست (با T شروع می‌شود و ۳۴ کاراکتر است).");
@@ -230,13 +234,21 @@ export async function POST(req: Request) {
     const base = publicBase(req, settings[SETTING_KEYS.appUrl]?.value ?? "");
     if (!base) return bad("آدرس عمومی سایت مشخص نشد؛ فیلد «آدرس سایت» را پر کنید.");
     const url = `${base}/api/telegram-webhook`;
-    const snapshot = await loadSettings();
-    const secret = snapshot.stored[SETTING_KEYS.telegramWebhookSecret] ?? "";
-    const res = await setWebhook(url, secret || undefined);
+    let webhookSecret: Awaited<ReturnType<typeof ensureTelegramWebhookSecret>>;
+    try {
+      webhookSecret = await ensureTelegramWebhookSecret();
+    } catch (err) {
+      console.error("[telegram] failed to persist webhook secret", err instanceof Error ? err.message : err);
+      return bad("کلید وب‌هوک ذخیره نشد؛ اتصال پایگاه‌داده و جدول app_settings را بررسی کنید.", 503);
+    }
+    if (!webhookSecret.ok) return bad(webhookSecret.error);
+
+    const res = await setWebhook(url, webhookSecret.secret);
     if (!res.ok) return bad(`ثبت وب‌هوک ناموفق بود: ${res.description ?? res.error}`);
     // Save the resolved base URL so links inside Telegram messages stay correct.
     if (!settings[SETTING_KEYS.appUrl]?.hasValue) await saveSetting(SETTING_KEYS.appUrl, base);
-    return ok({ ok: true, message: `✅ وب‌هوک روی ${url} ثبت شد.`, url });
+    const detail = webhookSecret.generated ? " کلید امن وب‌هوک نیز به‌صورت خودکار تولید و ذخیره شد." : "";
+    return ok({ ok: true, message: `✅ وب‌هوک روی ${url} ثبت شد.${detail}`, url });
   }
 
   if (action === "delete-webhook") {

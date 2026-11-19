@@ -1,6 +1,7 @@
 -- AURALIS — کامل‌ترین فایل راه‌اندازی (نسخه یکجا)
--- در Supabase → SQL Editor این فایل را paste کنید و Run بزنید.
--- اجرای دوباره هم بی‌خطر است (همه دستورها idempotent شده‌اند).
+-- فقط برای یک پایگاه‌دادهٔ تازه و خالی استفاده شود.
+-- برای دیتابیس موجود/production آن را مستقیم اجرا نکنید؛ ابتدا schema و تاریخچهٔ migration را تطبیق دهید، backup بگیرید و فقط تغییرات بازبینی‌شده را اعمال کنید.
+-- IF NOT EXISTS از تداخل نام جلوگیری می‌کند، اما سازگاری تعریف ستون‌ها و constraintها را تضمین نمی‌کند.
 -- روی Supabase این نقش‌ها از قبل وجود دارند؛ این بلوک فقط برای اجرای محلی است.
 do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
@@ -446,7 +447,7 @@ where not exists (select 1 from wallet_settings);
 
 
 -- ══════════ 0006_store_agent.sql ══════════
--- Safe to run twice.
+-- Included for fresh-database setup; replay does not verify schema equivalence.
 
 -- ── enums ──────────────────────────────────────────────────────────────────
 do $$ begin
@@ -810,7 +811,7 @@ exception when undefined_object then null; end $$;
 
 -- ══════════ 0007_product_broadcast.sql ══════════
 -- One row per (product, channel) so re-running "publish all" never spams the
--- channel with duplicates. Safe to run twice.
+-- channel with duplicates. DDL replay does not verify existing object definitions.
 
 create table if not exists store_product_posts (
   id serial primary key,

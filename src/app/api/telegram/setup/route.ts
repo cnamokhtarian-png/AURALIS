@@ -7,6 +7,7 @@ import {
   setWebhook,
   telegramCredentials,
 } from "@/lib/control/telegram";
+import { ensureTelegramWebhookSecret } from "@/lib/control/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -83,7 +84,17 @@ export async function POST(req: Request) {
   }
 
   const url = `${base}/api/telegram-webhook`;
-  const res = await setWebhook(url, process.env.TELEGRAM_WEBHOOK_SECRET);
+  let webhookSecret: Awaited<ReturnType<typeof ensureTelegramWebhookSecret>>;
+  try {
+    webhookSecret = await ensureTelegramWebhookSecret();
+  } catch (err) {
+    console.error("[telegram] failed to persist webhook secret", err instanceof Error ? err.message : err);
+    return bad("کلید وب‌هوک ذخیره نشد؛ اتصال پایگاه‌داده و جدول app_settings را بررسی کنید.", 503);
+  }
+  if (!webhookSecret.ok) return bad(webhookSecret.error);
+
+  const res = await setWebhook(url, webhookSecret.secret);
   if (!res.ok) return bad(`تنظیم وب‌هوک ناموفق بود: ${res.description ?? res.error}`);
-  return ok({ ok: true, message: `وب‌هوک روی ${url} تنظیم شد.`, url });
+  const detail = webhookSecret.generated ? " کلید امن وب‌هوک نیز به‌صورت خودکار تولید و ذخیره شد." : "";
+  return ok({ ok: true, message: `وب‌هوک روی ${url} تنظیم شد.${detail}`, url });
 }

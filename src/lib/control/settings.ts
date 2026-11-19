@@ -242,3 +242,26 @@ export async function saveSetting(key: string, value: string | null) {
   }
   invalidateSettingsCache();
 }
+
+/**
+ * Telegram rejects unauthenticated webhook requests only when a secret token
+ * was supplied during setWebhook. Reuse the configured value, or create and
+ * persist a strong secret before registering the webhook.
+ */
+export async function ensureTelegramWebhookSecret() {
+  const snapshot = await loadSettings();
+  const existing = snapshot.stored[SETTING_KEYS.telegramWebhookSecret]?.trim();
+  if (existing) {
+    if (!/^[A-Za-z0-9_-]{1,256}$/.test(existing)) {
+      return {
+        ok: false as const,
+        error: "TELEGRAM_WEBHOOK_SECRET باید فقط شامل حروف، عدد، خط تیره یا زیرخط و حداکثر ۲۵۶ نویسه باشد.",
+      };
+    }
+    return { ok: true as const, secret: existing, generated: false };
+  }
+
+  const secret = randomBytes(32).toString("base64url");
+  await saveSetting(SETTING_KEYS.telegramWebhookSecret, secret);
+  return { ok: true as const, secret, generated: true };
+}

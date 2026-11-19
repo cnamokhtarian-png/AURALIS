@@ -1,6 +1,6 @@
-import { asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { leadEvents, leads, researchReports, type Lead, type LeadStatus } from "@/db/schema";
+import { leadEvents, leads, researchReports, storeMessages, type Lead, type LeadStatus } from "@/db/schema";
 import { aiStatus, type AiStatus } from "@/lib/ai";
 import { LEAD_STAGES } from "./constants";
 import { listRuns } from "./pipeline";
@@ -9,6 +9,7 @@ import { marketingStats, type MarketingStats } from "./marketing";
 import { getAgentSettings, getChannels, publicChannel, type PublicChannel } from "./settings";
 import { sendWindow, type SendWindow } from "./rate-limit";
 import { researchFreshness } from "./research";
+import { getStoreOrderStats, type StoreOrderStats } from "./sales-stats";
 import type { ResearchReport, StoreAgentSettings } from "@/db/schema";
 
 export type ChannelHealth = PublicChannel & { window: SendWindow | null };
@@ -23,7 +24,10 @@ export type StoreAgentOverview = {
   newLeads7d: number;
   repliedLeads30d: number;
   pipelineValue: number;
+  /** Estimated value attached to CRM leads marked won; not storefront revenue. */
   wonValue: number;
+  /** Realized revenue and paid-order counts from the storefront orders table. */
+  sales: StoreOrderStats;
   conversion: number;
   avgScore: number;
   followUpsDue: number;
@@ -50,6 +54,7 @@ export async function getStoreAgentOverview(): Promise<StoreAgentOverview> {
     totals,
     weekly,
     replied,
+    sales,
     followUpsDue,
     messages,
     marketing,
@@ -77,9 +82,15 @@ export async function getStoreAgentOverview(): Promise<StoreAgentOverview> {
       .from(leads)
       .where(sql`${leads.createdAt} >= now() - interval '7 days'`),
     db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(leads)
-      .where(sql`${leads.lastInboundAt} >= now() - interval '30 days'`),
+      .select({ count: sql<number>`count(distinct ${storeMessages.leadId})::int` })
+      .from(storeMessages)
+      .where(
+        and(
+          eq(storeMessages.direction, "inbound"),
+          gte(storeMessages.createdAt, sql`now() - interval '30 days'`),
+        ),
+      ),
+    getStoreOrderStats(settings.timezone),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(leads)
@@ -137,6 +148,7 @@ export async function getStoreAgentOverview(): Promise<StoreAgentOverview> {
     repliedLeads30d: Number(replied[0]?.count ?? 0),
     pipelineValue: Number(totals[0]?.pipeline ?? 0),
     wonValue: Number(totals[0]?.won ?? 0),
+    sales,
     conversion,
     avgScore: Number(totals[0]?.avgScore ?? 0),
     followUpsDue: Number(followUpsDue[0]?.count ?? 0),

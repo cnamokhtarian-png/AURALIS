@@ -3,15 +3,19 @@ import {
   ArrowLeft,
   Bot,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Flame,
   Handshake,
+  Image as ImageIcon,
+  Inbox,
   Megaphone,
   MessageSquare,
   Radio,
   Search,
+  Settings2,
   ShieldCheck,
-  Sparkles,
+  Store,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -59,6 +63,7 @@ export default async function StoreAgentPage() {
     score: lead.score,
     body: message.body,
     status: message.status,
+    manualDispatch: Boolean((message.meta as { manualDispatch?: boolean })?.manualDispatch),
     createdAt: message.createdAt.toISOString(),
     scheduledFor: message.scheduledFor ? message.scheduledFor.toISOString() : null,
     shareUrl: shareUrlFor(message.channel, lead.handle),
@@ -73,77 +78,93 @@ export default async function StoreAgentPage() {
   const enabledChannels = data.channels.filter((channel) => channel.enabled);
 
   return (
-    <div className="space-y-6 cc-fade-up">
-      <section className="cc-panel relative overflow-hidden p-6 lg:p-8">
-        <div className="pointer-events-none absolute -top-28 left-1/4 size-80 rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 right-0 size-72 rounded-full bg-sky-500/[0.07] blur-3xl" />
-        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+    <div className="mx-auto max-w-7xl space-y-5 cc-fade-up">
+      <section className="cc-panel relative overflow-hidden p-5 sm:p-7">
+        <div className="pointer-events-none absolute -top-24 left-1/4 size-64 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[11px] text-emerald-300">
-              <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />
-              STORE AGENT · سه ایجنت متصل · Human-in-the-Loop
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[10px] text-emerald-200">
+              <Store className="size-3.5" /> AURALIS · راهنمای کارهای روزانه
             </span>
-            <h1 className="mt-4 text-2xl font-extrabold leading-relaxed text-white lg:text-3xl">
-              اتاق فرمان فروش، بازاریابی و تحقیقات بازار
-            </h1>
-            <p className="mt-2 text-sm leading-7 text-[#9db0c6]">
-              ایجنت سرنخ‌ها را امتیاز می‌دهد، بازاریاب محتوای هر کانال را می‌سازد و فروشنده با رعایت
-              فاصله زمانی و رضایت مخاطب پیام می‌گذارد. هیچ پیامی بدون تایید شما (به‌طور پیش‌فرض) خارج نمی‌شود.
+            <h1 className="mt-3 text-2xl font-extrabold text-white sm:text-3xl">ایجنت فروشگاه</h1>
+            <p className="mt-2 text-[12px] leading-6 text-[#9db0c6]">
+              پیام‌های آماده را بررسی کنید، مشتری‌ها را پیگیری کنید یا محتوای فروشگاه را مدیریت کنید. هیچ پیامی بدون تأیید شما ارسال نمی‌شود مگر اینکه ارسال خودکار را در تنظیمات روشن کرده باشید.
             </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <AgentRunButton agent="orchestrator" label="اجرای هر سه ایجنت" />
-              <Link href="/control/store/leads" className="cc-btn cc-btn-ghost">
-                <Users className="size-4" /> سرنخ‌ها
-              </Link>
-              <Link href="/control/store/inbox" className="cc-btn cc-btn-ghost">
-                <MessageSquare className="size-4" /> صندوق تایید
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link href="/control/store/inbox" className="cc-btn cc-btn-primary">
+                <Inbox className="size-4" /> بررسی پیام‌ها
                 {data.messages.drafts > 0 && (
-                  <span className="rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] text-amber-300">
-                    {faNumber(data.messages.drafts)}
-                  </span>
+                  <span className="rounded-full bg-black/20 px-1.5 py-0.5 text-[10px]">{faNumber(data.messages.drafts)}</span>
                 )}
               </Link>
-              <Link href="/control/store/marketing" className="cc-btn cc-btn-ghost">
-                <Megaphone className="size-4" /> بازاریابی
-              </Link>
-              <Link href="/control/store/research" className="cc-btn cc-btn-ghost">
-                <Search className="size-4" /> تحقیقات بازار
+              <AgentRunButton agent="orchestrator" label="اجرای ایجنت‌ها" />
+              <Link href="/control/store/settings" className="cc-btn cc-btn-ghost">
+                <Settings2 className="size-4" /> تنظیمات
               </Link>
             </div>
           </div>
-
-          <div className="cc-soft w-full max-w-sm space-y-3 p-5">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] text-[#8ba0b8]">مغز ایجنت</p>
-              <Sparkles className="size-4 text-violet-300" />
-            </div>
-            <p className="text-sm font-bold text-white">
-              {data.ai.configured ? data.ai.model : "موتور قالب فارسی"}
+          <div className="cc-soft w-full space-y-2 p-4 md:max-w-xs">
+            <p className="text-[10px] text-[#7d92aa]">وضعیت پیکربندی</p>
+            <p className="text-[12px] font-semibold text-white">
+              {data.ai.configured ? `مدل هوش مصنوعی: ${data.ai.model}` : "قالب پاسخ فارسی پیش‌فرض فعال است"}
             </p>
-            <p className="text-[11px] leading-6 text-[#8ba0b8]">{data.ai.hint}</p>
-            <div className="flex items-center justify-between border-t border-[#182436] pt-3 text-[11px]">
-              <span className="text-[#7d92aa]">حالت تایید</span>
-              <span className={settings.requireApproval ? "text-amber-300" : "text-emerald-300"}>
-                {settings.requireApproval ? "نیاز به تایید اپراتور" : "ارسال خودکار فعال"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-[#7d92aa]">سقف ارسال روزانه</span>
-              <span className="text-white">{faNumber(settings.dailySendCap)} پیام / کانال</span>
-            </div>
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-[#7d92aa]">فاصله بین پیام‌ها</span>
-              <span className="text-white">
-                {faNumber(settings.minGapMinutes)}–{faNumber(settings.maxGapMinutes)} دقیقه
-              </span>
-            </div>
-            <Link href="/control/store/settings" className="cc-btn cc-btn-ghost mt-1 w-full !py-1.5 !text-[11px]">
-              <ShieldCheck className="size-3.5" /> تنظیمات ضد‌بلاک
-            </Link>
+            <p className="text-[10px] leading-5 text-[#8ba0b8]">{data.ai.hint}</p>
+            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] ${settings.requireApproval ? "border-amber-400/25 bg-amber-400/10 text-amber-200" : "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"}`}>
+              {settings.requireApproval ? "بازبینی قبل از ارسال روشن" : "ارسال خودکار روشن"}
+            </span>
           </div>
         </div>
       </section>
 
+      <section aria-label="موارد نیازمند توجه" className="grid gap-3 sm:grid-cols-3">
+        {[
+          { href: "/control/store/inbox", label: "پیام‌های منتظر تأیید", value: data.messages.drafts, hint: "برای خواندن و پاسخ‌دادن", icon: Inbox, tone: "text-amber-300" },
+          { href: "/control/store/leads", label: "پیگیری مشتری‌ها", value: data.followUpsDue, hint: "پیگیری‌های سررسیدشده", icon: Users, tone: "text-sky-300" },
+          { href: "/control/store/inbox", label: "ارسال‌های ناموفق", value: data.messages.failed, hint: "برای بررسی در صندوق پیام‌ها", icon: MessageSquare, tone: "text-rose-300" },
+        ].map((item) => (
+          <Link key={item.label} href={item.href} className="cc-panel flex items-center gap-3 p-4 transition hover:border-emerald-400/25">
+            <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] ${item.tone}`}><item.icon className="size-5" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[10px] text-[#7d92aa]">{item.label}</span>
+              <span className={`mt-1 block text-2xl font-extrabold ${item.tone}`}>{faNumber(item.value)}</span>
+              <span className="block text-[9px] text-[#7d92aa]">{item.hint}</span>
+            </span>
+            <ArrowLeft className="size-4 shrink-0 text-[#53677f]" />
+          </Link>
+        ))}
+      </section>
+
+      <Panel title="کارهای اصلی" subtitle="برای شروع، یکی از این بخش‌ها را انتخاب کنید">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { href: "/control/store/inbox", label: "صندوق پیام‌ها", detail: "پاسخ‌ها را بازبینی و تأیید کنید", icon: Inbox, count: data.messages.drafts },
+            { href: "/control/store/leads", label: "مشتری‌ها", detail: "سرنخ‌ها و پیگیری‌ها را مدیریت کنید", icon: Users },
+            { href: "/control/store/marketing", label: "محتوا و کمپین‌ها", detail: "محتوا بسازید و کمپین‌ها را ببینید", icon: Megaphone },
+            { href: "/control/store/catalog", label: "کاتالوگ کانال", detail: "محصولات را برای انتشار آماده کنید", icon: ImageIcon },
+          ].map((item) => (
+            <Link key={item.href} href={item.href} className="group rounded-2xl border border-[#203047] bg-black/20 p-4 transition hover:border-emerald-400/30 hover:bg-emerald-400/[0.04]">
+              <span className="flex items-center justify-between gap-2">
+                <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300"><item.icon className="size-4" /></span>
+                {typeof item.count === "number" && item.count > 0 && <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] text-amber-200">{faNumber(item.count)} منتظر</span>}
+                <ArrowLeft className="mr-auto size-3.5 text-[#53677f] transition group-hover:-translate-x-0.5 group-hover:text-emerald-300" />
+              </span>
+              <span className="mt-3 block text-[12px] font-bold text-white">{item.label}</span>
+              <span className="mt-1 block text-[9px] leading-5 text-[#7d92aa]">{item.detail}</span>
+            </Link>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-[#182436] pt-3">
+          <Link href="/control/store/research" className="cc-btn cc-btn-ghost !py-2 text-[10px]"><Search className="size-3.5" /> تحقیقات بازار</Link>
+          <Link href="/control/store/settings" className="cc-btn cc-btn-ghost !py-2 text-[10px]"><Settings2 className="size-3.5" /> تنظیمات ایجنت و کانال‌ها</Link>
+        </div>
+      </Panel>
+
+      <details className="cc-panel group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-[12px] font-bold text-white [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2"><TrendingUp className="size-4 text-emerald-300" /> گزارش کامل، آمار و اجرای اختصاصی ایجنت‌ها</span>
+          <span className="flex items-center gap-2 text-[10px] font-normal text-[#8ba0b8]">جزئیات بیشتر <ChevronDown className="size-3 transition group-open:rotate-180" /></span>
+        </summary>
+        <div className="space-y-5 border-t border-[#182436] p-4 sm:p-5">
       <div className="grid gap-4 lg:grid-cols-3">
         <Panel
           title={
@@ -244,7 +265,9 @@ export default async function StoreAgentPage() {
             <div className="flex items-center justify-between">
               <span className="text-[#8ba0b8]">میانگین زمان پاسخ</span>
               <span className="text-white">
-                {data.messages.avgReplyMinutes ? `${faNumber(data.messages.avgReplyMinutes)} دقیقه` : "—"}
+                {data.messages.avgReplyMinutes !== null
+                  ? `${faNumber(data.messages.avgReplyMinutes)} دقیقه · ${faNumber(data.messages.replySamples)} پاسخ`
+                  : "—"}
               </span>
             </div>
             <AgentRunButton agent="sales" label="اجرای پیگیری‌ها" className="!py-1.5 !text-[11px]" />
@@ -278,23 +301,31 @@ export default async function StoreAgentPage() {
           href="/control/store/leads?grade=hot"
         />
         <StatCard
-          label="ارزش خط لوله"
+          label="ارزش فرصت‌های فعال (CRM)"
           value={formatPrice(data.pipelineValue)}
           icon={<TrendingUp className="size-5" />}
           tone="violet"
           progress={data.conversion}
-          hint={<span>نرخ تبدیل {faNumber(data.conversion)}٪</span>}
+          hint={
+            <>
+              <span>نرخ برد پرونده‌های بسته: {faNumber(data.conversion)}٪</span>
+              <span>ارزش CRM برده: {formatPrice(data.wonValue)}</span>
+            </>
+          }
         />
         <StatCard
-          label="فروش ثبت‌شده"
-          value={formatPrice(data.wonValue)}
+          label="درآمد واقعی فروشگاه"
+          value={formatPrice(data.sales.revenueTotal)}
           icon={<CheckCircle2 className="size-5" />}
           tone="emerald"
           hint={
-            <>
-              <span>{faNumber(data.leadCounts.won ?? 0)} مشتری</span>
-              <span>پاسخ‌گو ۳۰ روز: {faNumber(data.repliedLeads30d)}</span>
-            </>
+            <div className="w-full space-y-1">
+              <div className="flex justify-between gap-2">
+                <span>{faNumber(data.sales.paidOrders)} سفارش پرداخت‌شده</span>
+                <span>۳۰ روز: {formatPrice(data.sales.revenue30d)}</span>
+              </div>
+              <p>مشتری پیام‌داده در ۳۰ روز: {faNumber(data.repliedLeads30d)}</p>
+            </div>
           }
         />
       </div>
@@ -498,6 +529,8 @@ export default async function StoreAgentPage() {
           </span>
         </span>
       </div>
+        </div>
+      </details>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Search, SlidersHorizontal, X } from "lucide-react";
@@ -13,12 +13,10 @@ export function ProductFilters({ categories, total }: { categories: Array<Catego
   const pathname = usePathname();
   const params = useSearchParams();
   const [pending, startTransition] = useTransition();
-  const [q, setQ] = useState(params.get("q") ?? "");
+  const query = params.get("q") ?? "";
   const [showMobile, setShowMobile] = useState(false);
   const activeCategory = params.get("category");
   const sort = params.get("sort") ?? "newest";
-
-  useEffect(() => setQ(params.get("q") ?? ""), [params]);
 
   function update(next: Record<string, string | null>) {
     const sp = new URLSearchParams(params.toString());
@@ -61,17 +59,7 @@ export function ProductFilters({ categories, total }: { categories: Array<Catego
 
   return (
     <div className="space-y-4">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          update({ q: q.trim() || null });
-        }}
-        className="relative"
-      >
-        <Search className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-ink-muted" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="جستجو در محصولات…" className="pr-10" />
-        {pending && <Loader2 className="absolute top-1/2 left-3 size-4 -translate-y-1/2 animate-spin text-gold-dark" />}
-      </form>
+      <ProductSearchForm key={query} query={query} pending={pending} onSearch={(value) => update({ q: value || null })} />
 
       <div className="flex items-center gap-2 lg:hidden">
         <button onClick={() => setShowMobile((s) => !s)} className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-sand bg-pearl text-sm">
@@ -104,5 +92,32 @@ export function ProductFilters({ categories, total }: { categories: Array<Catego
         </Link>
       )}
     </div>
+  );
+}
+
+
+function ProductSearchForm({
+  query,
+  pending,
+  onSearch,
+}: {
+  query: string;
+  pending: boolean;
+  onSearch: (value: string) => void;
+}) {
+  const [q, setQ] = useState(query);
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSearch(q.trim());
+      }}
+      className="relative"
+    >
+      <Search className="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-ink-muted" />
+      <Input value={q} onChange={(event) => setQ(event.target.value)} placeholder="جستجو در محصولات…" className="pr-10" />
+      {pending && <Loader2 className="absolute top-1/2 left-3 size-4 -translate-y-1/2 animate-spin text-gold-dark" />}
+    </form>
   );
 }

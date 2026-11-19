@@ -16,9 +16,18 @@ import { storeMessages, type StoreAgentSettings } from "@/db/schema";
  * invocations and multiple cron runs.
  */
 
+function safeTimeZone(timeZone: string) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone }).format();
+    return timeZone;
+  } catch {
+    return "Asia/Tehran";
+  }
+}
+
 function zonedParts(date: Date, timeZone: string) {
   const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
+    timeZone: safeTimeZone(timeZone),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -46,7 +55,7 @@ function zonedParts(date: Date, timeZone: string) {
 function tzOffsetMs(date: Date, timeZone: string) {
   try {
     const formatter = new Intl.DateTimeFormat("en-US", {
-      timeZone,
+      timeZone: safeTimeZone(timeZone),
       timeZoneName: "longOffset",
     });
     const name = formatter.formatToParts(date).find((part) => part.type === "timeZoneName")?.value ?? "GMT";
@@ -61,10 +70,30 @@ function tzOffsetMs(date: Date, timeZone: string) {
   }
 }
 
+/** Convert a local wall-clock time to UTC, correcting for DST at the target instant. */
+export function zonedDateTime(date: Date, timeZone: string, daysToAdd = 0, hour = 0, minute = 0) {
+  const tz = safeTimeZone(timeZone);
+  const local = zonedParts(date, tz);
+  const targetDate = new Date(Date.UTC(local.year, local.month - 1, local.day + daysToAdd));
+  const wallTime = Date.UTC(
+    targetDate.getUTCFullYear(),
+    targetDate.getUTCMonth(),
+    targetDate.getUTCDate(),
+    hour,
+    minute,
+  );
+
+  let timestamp = wallTime;
+  for (let i = 0; i < 4; i += 1) {
+    const corrected = wallTime - tzOffsetMs(new Date(timestamp), tz);
+    if (corrected === timestamp) break;
+    timestamp = corrected;
+  }
+  return new Date(timestamp);
+}
+
 export function startOfDay(date: Date, timeZone: string) {
-  const parts = zonedParts(date, timeZone);
-  const utcMidnight = Date.UTC(parts.year, parts.month - 1, parts.day);
-  return new Date(utcMidnight - tzOffsetMs(date, timeZone));
+  return zonedDateTime(date, timeZone);
 }
 
 export function zonedHour(date: Date, timeZone: string) {
@@ -151,7 +180,7 @@ export async function sendWindow(settings: StoreAgentSettings, channel: string):
     next = quietWindowEnd(settings, now);
     reason = "ساعت آرام (Quiet hours) — ارسال تا بازشدن پنجره به تعویق می‌افتد";
   } else if (sentToday >= cap) {
-    next = new Date(startOfDay(now, settings.timezone || "Asia/Tehran").getTime() + 24 * 3_600_000 + 9 * 3_600_000);
+    next = zonedDateTime(now, settings.timezone || "Asia/Tehran", 1, 9);
     reason = `سقف روزانه ${cap} پیام پر شده است`;
   } else if (gapEnds && gapEnds > now) {
     next = gapEnds;
@@ -186,8 +215,8 @@ export async function nextSendSlot(
 
   if (sentToday >= cap) {
     const tz = settings.timezone || "Asia/Tehran";
-    const tomorrow = new Date(startOfDay(now, tz).getTime() + 24 * 3_600_000);
-    const at = new Date(tomorrow.getTime() + (9 + seed(seedValue) * 3) * 3_600_000);
+    const jitterMinutes = Math.floor(seed(seedValue) * 180);
+    const at = zonedDateTime(now, tz, 1, 9, jitterMinutes);
     return { at, reason: "سقف روزانه پر شده — فردا صبح", blockedBy: "cap" };
   }
 

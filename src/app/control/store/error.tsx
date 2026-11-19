@@ -12,17 +12,19 @@ export default function StoreAgentError({ error, reset }: { error: Error; reset:
           {migration ? <Database className="size-7" /> : <AlertTriangle className="size-7" />}
         </span>
         <h1 className="mt-4 text-lg font-extrabold text-white">
-          {migration ? "جدول‌های ایجنت فروشگاه ساخته نشده‌اند" : "خطایی در ایجنت فروشگاه رخ داد"}
+          {migration ? "بررسی پایگاه‌داده لازم است" : "خطایی در ایجنت فروشگاه رخ داد"}
         </h1>
         <p className="mt-2 text-[12px] leading-7 text-[#9db0c6]">
           {migration ? (
             <>
-              فایل <code className="cc-ltr cc-mono rounded bg-black/30 px-1.5 py-0.5 text-emerald-300">supabase/migrations/0006_store_agent.sql</code>{" "}
-              (یا <code className="cc-ltr cc-mono rounded bg-black/30 px-1.5 py-0.5 text-emerald-300">supabase/all-in-one.sql</code>) را
-              یک‌بار در SQL Editor سوپابیس اجرا کنید. این کار بی‌خطر و تکرارپذیر است.
+              جدول یا ستون موردنیاز پیدا نشد، یا نسخهٔ schema با برنامه هم‌خوان نیست. اگر این پایگاه‌داده از قبل داده دارد یا production است، فایل‌های migration یا
+              <code className="cc-ltr cc-mono mx-1 rounded bg-black/30 px-1.5 py-0.5 text-emerald-300">all-in-one.sql</code>
+              را مستقیم اجرا نکنید. ابتدا از پایگاه‌داده نسخهٔ پشتیبان بگیرید و schema و تاریخچهٔ migration همان محیط را با راهنمای
+              <code className="cc-ltr cc-mono mx-1 rounded bg-black/30 px-1.5 py-0.5 text-emerald-300">docs/STORE-AGENT-SETUP.md</code>
+              تطبیق دهید؛ فقط migration تأییدشدهٔ همان نسخه را اعمال کنید. برای دیتابیس تازه و خالی هم migrationهای هم‌نسخه را به‌ترتیب اجرا کنید.
             </>
           ) : (
-            <>پیام فنی: {error.message}</>
+            <>مشکلی موقت پیش آمده است. دوباره تلاش کنید؛ اگر ادامه داشت با مدیر سامانه تماس بگیرید.</>
           )}
         </p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
